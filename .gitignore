@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Google Services configuration file (contains API keys and other sensitive information)
+android/app/google-services.json
+lib/firebase_options.dart
+.metadata
