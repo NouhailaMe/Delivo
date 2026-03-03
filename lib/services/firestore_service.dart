@@ -3,17 +3,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// 🔥 GET ALL RESTAURANTS
-  Stream<QuerySnapshot> getRestaurants() {
-    return _db.collection('restaurants').snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> getRestaurants() {
+    return _db
+        .collection('restaurants')
+        .orderBy('name')
+        .snapshots();
   }
 
-  /// 🔥 GET PRODUCTS OF ONE RESTAURANT
-  Stream<QuerySnapshot> getRestaurantProducts(String restaurantId) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getRestaurantById(
+    String restaurantId,
+  ) {
+    return _db.collection('restaurants').doc(restaurantId).snapshots();
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> getRestaurantProducts(
+    String restaurantId,
+  ) {
     return _db
         .collection('restaurants')
         .doc(restaurantId)
         .collection('products')
+        .orderBy('name')
         .snapshots();
   }
 }

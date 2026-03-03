@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'change_password_screen.dart';
 import 'change_phone_screen.dart';
 import 'payment_methods_screen.dart';
 import 'manage_privacy_screen.dart';
+import '../services/user_profile_service.dart';
 
 class MyInformationScreen extends StatelessWidget {
   const MyInformationScreen({super.key});
@@ -11,6 +13,12 @@ class MyInformationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email ?? 'no-email';
+    final name = (user?.displayName?.trim().isNotEmpty == true)
+        ? user!.displayName!.trim()
+        : UserProfileService.displayNameFromEmail(email);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
@@ -35,13 +43,13 @@ class MyInformationScreen extends StatelessWidget {
 
           _infoItem(
             icon: Icons.person_outline,
-            title: 'Jaguar',
+            title: name,
             subtitle: 'Name',
           ),
 
           _infoItem(
             icon: Icons.email_outlined,
-            title: 'kodjoceasar@gmail.com',
+            title: email,
             subtitle: 'Email',
           ),
 

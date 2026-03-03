@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_profile_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -16,6 +17,7 @@ class AuthService {
 
     if (cred.user != null && !cred.user!.emailVerified) {
       await cred.user!.sendEmailVerification();
+      await UserProfileService.syncUser(user: cred.user!);
     }
 
     return cred.user;
@@ -53,6 +55,8 @@ class AuthService {
         message: 'Email not verified',
       );
     }
+
+    await UserProfileService.syncUser(user: refreshedUser);
 
     return refreshedUser;
   }

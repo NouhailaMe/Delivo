@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/user_profile_service.dart';
 import '../main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      await UserProfileService.syncCurrentUser();
+
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
@@ -63,11 +67,14 @@ switch (e.code) {
 }
 
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

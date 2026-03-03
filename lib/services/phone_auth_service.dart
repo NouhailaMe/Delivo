@@ -5,23 +5,25 @@ class PhoneAuthService {
 
   Future<void> sendCode({
     required String phoneNumber,
-    required Function(String verificationId) onCodeSent,
-    required Function(String error) onError,
+    required void Function(String verificationId) onCodeSent,
+    required void Function(String error) onError,
+    void Function(String verificationId)? onTimeout,
   }) async {
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       timeout: const Duration(seconds: 60),
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-retrieval (Android)
         await _auth.signInWithCredential(credential);
       },
       verificationFailed: (FirebaseAuthException e) {
-        onError(e.message ?? 'Erreur lors de la vérification');
+        onError(e.message ?? 'Unable to send SMS code.');
       },
       codeSent: (String verificationId, int? resendToken) {
         onCodeSent(verificationId);
       },
-      codeAutoRetrievalTimeout: (String verificationId) {},
+      codeAutoRetrievalTimeout: (String verificationId) {
+        if (onTimeout != null) onTimeout(verificationId);
+      },
     );
   }
 
@@ -33,7 +35,6 @@ class PhoneAuthService {
       verificationId: verificationId,
       smsCode: smsCode,
     );
-
-    return await _auth.signInWithCredential(credential);
+    return _auth.signInWithCredential(credential);
   }
 }

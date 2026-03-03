@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/phone_auth_service.dart';
+import '../../services/user_profile_service.dart';
 import '../main_layout.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -24,6 +25,9 @@ class _OtpScreenState extends State<OtpScreen> {
         verificationId: widget.verificationId,
         smsCode: _codeController.text.trim(),
       );
+      await UserProfileService.syncCurrentUser();
+
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
@@ -35,7 +39,9 @@ class _OtpScreenState extends State<OtpScreen> {
       );
     }
 
-    setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   @override

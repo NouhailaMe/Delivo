@@ -1,17 +1,20 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/cart_service.dart';
+
 import '../../models/cart_item.dart';
+import '../../services/cart_service.dart';
 
 class ProductDetailsSheet extends StatefulWidget {
   final Map<String, dynamic> productData;
   final String restaurantId;
+  final String restaurantName;
 
   const ProductDetailsSheet({
     super.key,
     required this.productData,
     required this.restaurantId,
+    required this.restaurantName,
   });
 
   @override
@@ -22,11 +25,14 @@ class _ProductDetailsSheetState extends State<ProductDetailsSheet> {
   int quantity = 1;
   final Map<String, dynamic> selectedOptions = {};
 
+  String get productId => (widget.productData['id'] ?? '').toString();
+  String get name => (widget.productData['name'] ?? '').toString();
+  String get description => (widget.productData['description'] ?? '').toString();
+  String? get imageUrl => widget.productData['imageUrl']?.toString();
+  double get price => (widget.productData['price'] as num?)?.toDouble() ?? 0;
+
   @override
   Widget build(BuildContext context) {
-    final data = widget.productData;
-    final String productId = data['id'];
-
     return DraggableScrollableSheet(
       initialChildSize: 0.95,
       minChildSize: 0.6,
@@ -34,232 +40,114 @@ class _ProductDetailsSheetState extends State<ProductDetailsSheet> {
       builder: (_, controller) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            color: Color(0xFFF8F8F8),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
           ),
           child: Stack(
             children: [
-              /// ================= SCROLL CONTENT =================
               SingleChildScrollView(
                 controller: controller,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 140),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    /// CLOSE
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-
-                    /// TITLE
-                    Text(
-                      data['name'],
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _circleIcon(
+                        icon: Icons.close,
+                        onTap: () => Navigator.pop(context),
                       ),
                     ),
-
+                    const SizedBox(height: 6),
+                    _heroImage(),
+                    const SizedBox(height: 18),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                        height: 0.95,
+                      ),
+                    ),
                     const SizedBox(height: 8),
-
-                    /// PRICE
                     Text(
-                      '${data['price']} MAD',
+                      '${price.toStringAsFixed(2)} MAD',
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-
+                    const SizedBox(height: 10),
+                    Text(
+                      description.isEmpty ? 'No description available.' : description,
+                      style: const TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 16,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _quantityBox(),
+                    const SizedBox(height: 26),
+                    _OptionsSection(
+                      restaurantId: widget.restaurantId,
+                      productId: productId,
+                      selectedOptions: selectedOptions,
+                      onChanged: () => setState(() {}),
+                    ),
                     const SizedBox(height: 24),
-
-                    /// ================= OPTIONS =================
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('restaurants')
-                          .doc(widget.restaurantId)
-                          .collection('products')
-                          .doc(productId)
-                          .collection('options')
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-
-                        if (snapshot.hasError) {
-                          return const Text(
-                            'Error loading options',
-                            style: TextStyle(color: Colors.red),
-                          );
-                        }
-
-                        if (!snapshot.hasData ||
-                            snapshot.data!.docs.isEmpty) {
-                          return const Text(
-                            'No options available',
-                            style: TextStyle(color: Colors.grey),
-                          );
-                        }
-
-                        final options = snapshot.data!.docs;
-
-                        return Column(
-                          children: options.map((doc) {
-                            final opt =
-                                doc.data() as Map<String, dynamic>;
-
-                            final values =
-                                List<String>.from(opt['values']);
-
-                            final type = opt['type'];
-
-                            return Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                /// OPTION TITLE
-                                Text(
-                                  opt['title'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-
-                                const SizedBox(height: 8),
-
-                                /// SINGLE CHOICE
-                                if (type == 'single')
-                                  ...values.map(
-                                    (v) => RadioListTile<String>(
-                                      title: Text(v),
-                                      value: v,
-                                      groupValue:
-                                          selectedOptions[doc.id],
-                                      onChanged: (val) {
-                                        setState(() {
-                                          selectedOptions[doc.id] = val;
-                                        });
-                                      },
-                                    ),
-                                  ),
-
-                                /// MULTIPLE CHOICE
-                                if (type == 'multiple')
-                                  ...values.map(
-                                    (v) => CheckboxListTile(
-                                      title: Text(v),
-                                      value:
-                                          (selectedOptions[doc.id] ?? [])
-                                              .contains(v),
-                                      onChanged: (checked) {
-                                        setState(() {
-                                          selectedOptions[doc.id] ??= [];
-
-                                          checked!
-                                              ? selectedOptions[doc.id]
-                                                  .add(v)
-                                              : selectedOptions[doc.id]
-                                                  .remove(v);
-                                        });
-                                      },
-                                    ),
-                                  ),
-
-                                const SizedBox(height: 24),
-                              ],
-                            );
-                          }).toList(),
+                    const Text(
+                      'Others also bought',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _RelatedProducts(
+                      restaurantId: widget.restaurantId,
+                      currentProductId: productId,
+                      onSelect: (data) {
+                        Navigator.pop(context);
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: true,
+                          builder: (_) => ProductDetailsSheet(
+                            productData: data,
+                            restaurantId: widget.restaurantId,
+                            restaurantName: widget.restaurantName,
+                          ),
                         );
                       },
                     ),
                   ],
                 ),
               ),
-
-              /// ================= STICKY FOOTER =================
               Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                      ),
-                    ],
+                left: 18,
+                right: 18,
+                bottom: 18,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D8A6A),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 58),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      /// QUANTITY -
-                      IconButton(
-                        icon: const Icon(Icons.remove),
-                        onPressed: quantity > 1
-                            ? () => setState(() => quantity--)
-                            : null,
-                      ),
-
-                      Text(
-                        '$quantity',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      /// QUANTITY +
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: () =>
-                            setState(() => quantity++),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      /// ADD TO CART BUTTON
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFF0FA958),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(30),
-                            ),
-                          ),
-                          onPressed: () {
-                            final cart =
-                                context.read<CartService>();
-
-                            cart.addToCart(
-                              CartItem(
-                                productId: productId,
-                                name: data['name'],
-                                price:
-                                    data['price'].toDouble(),
-                                quantity: quantity,
-                                options: selectedOptions,
-                              ),
-                            );
-
-                            Navigator.pop(context);
-                          },
-                          child: Text(
-                            'Add $quantity for ${(data['price'] * quantity).toStringAsFixed(0)} MAD',
-                          ),
-                        ),
-                      ),
-                    ],
+                  onPressed: _addToCart,
+                  child: Text(
+                    'Add $quantity for ${(price * quantity).toStringAsFixed(2)} MAD',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 19,
+                    ),
                   ),
                 ),
               ),
@@ -267,6 +155,332 @@ class _ProductDetailsSheetState extends State<ProductDetailsSheet> {
           ),
         );
       },
+    );
+  }
+
+  Widget _heroImage() {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 300,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: imageUrl != null && imageUrl!.isNotEmpty
+                ? Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _imageFallback(),
+                  )
+                : _imageFallback(),
+          ),
+        ),
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: _circleIcon(icon: Icons.search),
+        ),
+      ],
+    );
+  }
+
+  Widget _quantityBox() {
+    return Center(
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8EBF0),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              onPressed: quantity > 1 ? () => setState(() => quantity--) : null,
+              icon: const Icon(Icons.remove, size: 28),
+            ),
+            Text(
+              '$quantity',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            IconButton(
+              onPressed: () => setState(() => quantity++),
+              icon: const Icon(Icons.add, size: 28),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _circleIcon({required IconData icon, VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Color(0xFF0F172A)),
+      ),
+    );
+  }
+
+  Widget _imageFallback() {
+    return Container(
+      color: const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.fastfood,
+        size: 52,
+        color: Color(0xFF6B7280),
+      ),
+    );
+  }
+
+  void _addToCart() {
+    context.read<CartService>().addToCart(
+          item: CartItem(
+            productId: productId,
+            restaurantId: widget.restaurantId,
+            name: name,
+            imageUrl: imageUrl,
+            price: price,
+            quantity: quantity,
+            options: selectedOptions,
+          ),
+          restaurantName: widget.restaurantName,
+        );
+
+    Navigator.pop(context);
+  }
+}
+
+class _OptionsSection extends StatelessWidget {
+  final String restaurantId;
+  final String productId;
+  final Map<String, dynamic> selectedOptions;
+  final VoidCallback onChanged;
+
+  const _OptionsSection({
+    required this.restaurantId,
+    required this.productId,
+    required this.selectedOptions,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('restaurants')
+          .doc(restaurantId)
+          .collection('products')
+          .doc(productId)
+          .collection('options')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: docs.map((doc) {
+            final data = doc.data();
+            final title = (data['title'] ?? '').toString();
+            final values = List<String>.from(data['values'] ?? const []);
+            final type = (data['type'] ?? 'single').toString();
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (type == 'single')
+                      ...values.map(
+                        (value) => RadioListTile<String>(
+                          dense: true,
+                          value: value,
+                          groupValue: selectedOptions[doc.id] as String?,
+                          title: Text(value),
+                          onChanged: (newValue) {
+                            if (newValue == null) return;
+                            selectedOptions[doc.id] = newValue;
+                            onChanged();
+                          },
+                        ),
+                      ),
+                    if (type == 'multiple')
+                      ...values.map(
+                        (value) => CheckboxListTile(
+                          dense: true,
+                          value: (selectedOptions[doc.id] as List<dynamic>? ?? const [])
+                              .contains(value),
+                          title: Text(value),
+                          onChanged: (selected) {
+                            final list = (selectedOptions[doc.id] as List<dynamic>? ?? [])
+                                .map((e) => e.toString())
+                                .toList();
+                            if (selected == true) {
+                              if (!list.contains(value)) list.add(value);
+                            } else {
+                              list.remove(value);
+                            }
+                            selectedOptions[doc.id] = list;
+                            onChanged();
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _RelatedProducts extends StatelessWidget {
+  final String restaurantId;
+  final String currentProductId;
+  final void Function(Map<String, dynamic>) onSelect;
+
+  const _RelatedProducts({
+    required this.restaurantId,
+    required this.currentProductId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('restaurants')
+          .doc(restaurantId)
+          .collection('products')
+          .limit(8)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs
+                .where((doc) => doc.id != currentProductId)
+                .take(6)
+                .toList() ??
+            [];
+
+        if (docs.isEmpty) return const SizedBox.shrink();
+
+        return SizedBox(
+          height: 210,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final data = docs[index].data();
+              data['id'] = docs[index].id;
+              final imageUrl = data['imageUrl']?.toString();
+
+              return GestureDetector(
+                onTap: () => onSelect(data),
+                child: SizedBox(
+                  width: 155,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: imageUrl != null && imageUrl.isNotEmpty
+                                    ? Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => _fallbackCard(),
+                                      )
+                                    : _fallbackCard(),
+                              ),
+                            ),
+                            Positioned(
+                              right: 8,
+                              bottom: 8,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(7),
+                                  child: Icon(Icons.add, color: Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        (data['name'] ?? '').toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _fallbackCard() {
+    return Container(
+      color: const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.fastfood,
+        color: Color(0xFF6B7280),
+      ),
     );
   }
 }

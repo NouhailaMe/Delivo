@@ -1,5 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../services/location_service.dart';
+import '../location/location_picker_screen.dart';
 import '../restaurants/restaurants_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -10,12 +14,15 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final locationStream = uid == null
+        ? const Stream<Map<String, dynamic>?>.empty()
+        : LocationService.watchUserLocation(uid);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 🔵 TOP NAVY BACKGROUND
           Container(
             height: size.height * 0.55,
             width: double.infinity,
@@ -27,33 +34,27 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // 📄 MAIN CONTENT
           SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
+            child: StreamBuilder<Map<String, dynamic>?>(
+              stream: locationStream,
+              builder: (context, snapshot) {
+                final location = snapshot.data;
 
-                  // 📍 ADDRESS
-                  _addressPicker(),
-
-                  const SizedBox(height: 20),
-
-                  // 🔍 SEARCH
-                  _searchBar(),
-
-                  const SizedBox(height: 32),
-
-                  // 🔘 CATEGORIES
-                  _categories(context),
-
-                  const SizedBox(height: 40),
-
-                  // ⬜ WHITE SECTION
-                  _whiteSection(),
-                ],
-              ),
+                return SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      _addressPicker(context, uid: uid, location: location),
+                      const SizedBox(height: 20),
+                      _searchBar(),
+                      const SizedBox(height: 32),
+                      _categories(context),
+                      const SizedBox(height: 40),
+                      _whiteSection(),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -61,27 +62,62 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // ================= WIDGETS =================
-
-  Widget _addressPicker() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
+  Future<void> _changeLocation(
+    BuildContext context, {
+    required String uid,
+    required Map<String, dynamic>? location,
+  }) async {
+    final picked = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialLat: (location?['latitude'] as num?)?.toDouble() ?? 33.5898,
+          initialLng: (location?['longitude'] as num?)?.toDouble() ?? -7.6039,
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.location_on, color: Colors.white, size: 18),
-            SizedBox(width: 6),
-            Text(
-              'Your address',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-            Icon(Icons.keyboard_arrow_down, color: Colors.white),
-          ],
+      ),
+    );
+
+    if (picked == null) return;
+    await LocationService.saveUserLocation(uid: uid, location: picked);
+  }
+
+  Widget _addressPicker(
+    BuildContext context, {
+    required String? uid,
+    required Map<String, dynamic>? location,
+  }) {
+    final address = (location?['fullAddress'] ?? 'Choose your location').toString();
+
+    return Center(
+      child: GestureDetector(
+        onTap: uid == null
+            ? null
+            : () => _changeLocation(context, uid: uid, location: location),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_on, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 170),
+                child: Text(
+                  address,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+            ],
+          ),
         ),
       ),
     );
@@ -96,7 +132,7 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -114,7 +150,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 🔥 CATEGORIES WITH NAVIGATION
   Widget _categories(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -164,8 +199,6 @@ class HomeScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-
-          // 🟢 STORES (STATIC FOR NOW)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -177,19 +210,14 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 32),
-
           _promoBanner(),
-
           const SizedBox(height: 32),
-
           const Text(
             'Stores you might like',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-
           _verticalStore('Burger King', 'assets/stores/burger_king.svg'),
           _verticalStore('KFC', 'assets/stores/kfc.svg'),
           _verticalStore('Marjane', 'assets/stores/marjane.svg'),
@@ -197,8 +225,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-
-  // ================= COMPONENTS =================
 
   Widget _storeCard(String name, String asset) {
     return Container(
@@ -274,8 +300,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
-
-// ================= CATEGORY =================
 
 class _Category extends StatelessWidget {
   final String label;

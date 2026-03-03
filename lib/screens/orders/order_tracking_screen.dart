@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../../services/order_service.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -12,177 +13,151 @@ class OrderTrackingScreen extends StatefulWidget {
   });
 
   @override
-  State<OrderTrackingScreen> createState() =>
-      _OrderTrackingScreenState();
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState
-    extends State<OrderTrackingScreen> {
-
-  final MapController _mapController = MapController();
-
-  @override
-  void initState() {
-    super.initState();
-    simulateDriver(); // 🔥 Demo movement
-  }
-
-  /// 🔥 SIMULATE DRIVER MOVEMENT (FOR DEMO)
-  void simulateDriver() async {
-    await Future.delayed(const Duration(seconds: 5));
-
-    FirebaseFirestore.instance
-        .collection('orders')
-        .doc(widget.orderId)
-        .update({
-      'driverLat': 33.5920,
-      'driverLng': -7.6010,
-      'status': 'on_the_way',
-    });
-
-    await Future.delayed(const Duration(seconds: 5));
-
-    FirebaseFirestore.instance
-        .collection('orders')
-        .doc(widget.orderId)
-        .update({
-      'driverLat': 33.5898,
-      'driverLng': -7.6039,
-      'status': 'delivered',
-    });
-  }
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  static const navy = Color(0xFF0F172A);
+  final _mapController = MapController();
+  final _service = OrderService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .doc(widget.orderId)
-            .snapshots(),
+      body: StreamBuilder(
+        stream: _service.orderById(widget.orderId),
         builder: (context, snapshot) {
-
-          if (!snapshot.hasData ||
-              snapshot.data!.data() == null) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: CircularProgressIndicator());
           }
 
-          final data =
-              snapshot.data!.data() as Map<String, dynamic>;
+          final data = snapshot.data!.data() ?? const <String, dynamic>{};
+          final status = (data['status'] ?? '').toString();
+          final deliveryAddress = (data['deliveryAddress'] is Map)
+              ? Map<String, dynamic>.from(data['deliveryAddress'] as Map)
+              : const <String, dynamic>{};
 
-          final deliveryPosition = LatLng(
-              data['deliveryLat'],
-              data['deliveryLng']);
+          final deliveryLat = (deliveryAddress['latitude'] as num?)?.toDouble() ??
+              (data['deliveryLat'] as num?)?.toDouble() ??
+              33.5898;
+          final deliveryLng = (deliveryAddress['longitude'] as num?)?.toDouble() ??
+              (data['deliveryLng'] as num?)?.toDouble() ??
+              -7.6039;
 
-          final driverPosition = LatLng(
-              data['driverLat'],
-              data['driverLng']);
+          final driverLat = (data['driverLat'] as num?)?.toDouble() ?? deliveryLat;
+          final driverLng = (data['driverLng'] as num?)?.toDouble() ?? deliveryLng;
 
-          final status = data['status'];
+          final driverPosition = LatLng(driverLat, driverLng);
+          final deliveryPosition = LatLng(deliveryLat, deliveryLng);
 
-          /// 🔥 AUTO FOLLOW DRIVER
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _mapController.move(driverPosition, 15);
+            _mapController.move(driverPosition, 14);
           });
 
           return Stack(
             children: [
-
-              /// 🗺 MAP
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
                   initialCenter: driverPosition,
-                  initialZoom: 15,
+                  initialZoom: 14,
                 ),
                 children: [
-
-                  /// MAP TILES
                   TileLayer(
-                    urlTemplate:
-                        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    userAgentPackageName:
-                        'com.example.delivo',
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.delivo',
                   ),
-
-                  /// ROUTE LINE
                   PolylineLayer(
                     polylines: [
                       Polyline(
-                        points: [
-                          driverPosition,
-                          deliveryPosition,
-                        ],
+                        points: [driverPosition, deliveryPosition],
+                        color: const Color(0xFF0D8A6A),
                         strokeWidth: 4,
-                        color: Colors.blue,
                       ),
                     ],
                   ),
-
-                  /// MARKERS
                   MarkerLayer(
                     markers: [
-
-                      /// 🏠 DELIVERY LOCATION
                       Marker(
                         point: deliveryPosition,
-                        width: 40,
-                        height: 40,
+                        width: 42,
+                        height: 42,
                         child: const Icon(
-                          Icons.home,
+                          Icons.home_filled,
                           color: Colors.red,
-                          size: 35,
+                          size: 34,
                         ),
                       ),
-
-                      /// 🚚 DRIVER
                       Marker(
                         point: driverPosition,
-                        width: 40,
-                        height: 40,
+                        width: 42,
+                        height: 42,
                         child: const Icon(
                           Icons.delivery_dining,
-                          color: Colors.green,
-                          size: 35,
+                          color: Color(0xFF0D8A6A),
+                          size: 36,
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-
-              /// 🟢 STATUS CARD
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                        BorderRadius.vertical(
-                      top: Radius.circular(24),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 6),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: navy),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ),
                   ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
                   child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Order Status: $status",
+                        _titleFor(status),
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                              FontWeight.bold,
+                          color: navy,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        "Your driver is on the way 🚴",
+                      const SizedBox(height: 8),
+                      Text(
+                        _subtitleFor(status),
+                        style: const TextStyle(
+                          color: Color(0xFF4B5563),
+                          fontSize: 16,
+                        ),
                       ),
+                      const SizedBox(height: 14),
+                      Text(
+                        (deliveryAddress['fullAddress'] ?? 'Delivery address').toString(),
+                        style: const TextStyle(
+                          color: navy,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _ProgressPills(current: status),
                     ],
                   ),
                 ),
@@ -192,5 +167,97 @@ class _OrderTrackingScreenState
         },
       ),
     );
+  }
+
+  String _titleFor(String status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'Searching courier';
+      case OrderStatus.accepted:
+        return 'Courier accepted';
+      case OrderStatus.pickedUp:
+        return 'Order picked up';
+      case OrderStatus.onTheWay:
+        return 'On the way';
+      case OrderStatus.delivered:
+        return 'Delivered';
+      default:
+        return 'Tracking order';
+    }
+  }
+
+  String _subtitleFor(String status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'Your order is waiting for a courier to accept it.';
+      case OrderStatus.accepted:
+        return 'The courier is heading to the restaurant.';
+      case OrderStatus.pickedUp:
+        return 'The courier picked your order.';
+      case OrderStatus.onTheWay:
+        return 'Courier is moving to your location.';
+      case OrderStatus.delivered:
+        return 'Enjoy your meal.';
+      default:
+        return 'Live updates appear here.';
+    }
+  }
+}
+
+class _ProgressPills extends StatelessWidget {
+  final String current;
+
+  const _ProgressPills({required this.current});
+
+  static const steps = [
+    OrderStatus.pending,
+    OrderStatus.accepted,
+    OrderStatus.pickedUp,
+    OrderStatus.onTheWay,
+    OrderStatus.delivered,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = steps.indexOf(current);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: steps.map((step) {
+        final active = currentIndex >= steps.indexOf(step);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF0D8A6A) : const Color(0xFFE5E7EB),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(
+            _label(step),
+            style: TextStyle(
+              color: active ? Colors.white : const Color(0xFF6B7280),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _label(String step) {
+    switch (step) {
+      case OrderStatus.pending:
+        return 'Pending';
+      case OrderStatus.accepted:
+        return 'Accepted';
+      case OrderStatus.pickedUp:
+        return 'Picked up';
+      case OrderStatus.onTheWay:
+        return 'On the way';
+      case OrderStatus.delivered:
+        return 'Delivered';
+      default:
+        return step;
+    }
   }
 }

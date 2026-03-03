@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+
 import 'firebase_options.dart';
 import 'screens/onboarding/onboarding_screen.dart';
-import 'package:provider/provider.dart';
-import '../services/cart_service.dart';
+import 'services/cart_service.dart';
+import 'screens/main_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,12 +13,11 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(
-  ChangeNotifierProvider(
-    create: (_) => CartService(),
-    child: const MyApp(),
-  ),
-);
-
+    ChangeNotifierProvider(
+      create: (_) => CartService(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -35,6 +36,9 @@ class MyApp extends StatelessWidget {
           centerTitle: true,
         ),
       ),
+      routes: {
+        '/home': (_) => const MainLayout(),
+      },
       home: const OnboardingScreen(),
     );
   }

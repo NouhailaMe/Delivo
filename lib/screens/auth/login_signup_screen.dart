@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-import '/widgets/ellipse_clipper.dart';
+import '../../services/phone_auth_service.dart';
+import '../../services/user_profile_service.dart';
+import '../../widgets/ellipse_clipper.dart';
+import 'driver_login_screen.dart';
 import 'login_screen.dart';
 import 'otp_screen.dart';
 
@@ -17,18 +20,25 @@ class LoginSignupScreen extends StatefulWidget {
 
 class _LoginSignupScreenState extends State<LoginSignupScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final PhoneAuthService _phoneAuthService = PhoneAuthService();
   final TextEditingController _phoneController = TextEditingController();
 
   String _countryCode = '+212';
-  String _countryFlag = '🇲🇦';
+  String _countryFlag = 'MA';
   bool _loading = false;
 
-  final List<Map<String, String>> _countries = [
-    {'code': '+212', 'flag': '🇲🇦', 'name': 'Morocco'},
-    {'code': '+33', 'flag': '🇫🇷', 'name': 'France'},
-    {'code': '+1', 'flag': '🇺🇸', 'name': 'USA'},
-    {'code': '+44', 'flag': '🇬🇧', 'name': 'UK'},
+  final List<Map<String, String>> _countries = const [
+    {'code': '+212', 'flag': 'MA', 'name': 'Morocco'},
+    {'code': '+33', 'flag': 'FR', 'name': 'France'},
+    {'code': '+1', 'flag': 'US', 'name': 'USA'},
+    {'code': '+44', 'flag': 'UK', 'name': 'United Kingdom'},
   ];
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   void _showCountryPicker() {
     showModalBottomSheet(
@@ -40,10 +50,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
         return ListView(
           children: _countries.map((country) {
             return ListTile(
-              leading:
-                  Text(country['flag']!, style: const TextStyle(fontSize: 22)),
               title: Text(country['name']!),
               trailing: Text(country['code']!),
+              leading: Text(country['flag']!),
               onTap: () {
                 setState(() {
                   _countryCode = country['code']!;
@@ -58,7 +67,12 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
     );
   }
 
-  /// 🔥 PHONE AUTH
+  String _normalizePhone() {
+    final raw = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final noLeadingZero = raw.startsWith('0') ? raw.substring(1) : raw;
+    return '$_countryCode$noLeadingZero';
+  }
+
   Future<void> _sendSmsCode() async {
     if (_phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,24 +81,13 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
       return;
     }
 
-    final String phoneNumber =
-        '$_countryCode${_phoneController.text.trim()}';
-
     setState(() => _loading = true);
+    final phoneNumber = _normalizePhone();
 
-    await _auth.verifyPhoneNumber(
+    await _phoneAuthService.sendCode(
       phoneNumber: phoneNumber,
-      timeout: const Duration(seconds: 60),
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Verification failed')),
-        );
-        setState(() => _loading = false);
-      },
-      codeSent: (String verificationId, int? resendToken) {
+      onCodeSent: (verificationId) {
+        if (!mounted) return;
         setState(() => _loading = false);
         Navigator.push(
           context,
@@ -93,75 +96,81 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
           ),
         );
       },
-      codeAutoRetrievalTimeout: (String verificationId) {
+      onError: (error) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      },
+      onTimeout: (_) {
+        if (!mounted) return;
         setState(() => _loading = false);
       },
     );
   }
 
-  /// 🔥 GOOGLE AUTH
+  Future<void> _goHomeAfterSync() async {
+    await UserProfileService.syncCurrentUser();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/home');
+  }
+
   Future<void> _signInWithGoogle() async {
     try {
       setState(() => _loading = true);
 
-      final GoogleSignInAccount? googleUser =
-          await GoogleSignIn().signIn();
-
+      final googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
+        if (!mounted) return;
         setState(() => _loading = false);
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
+      final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
       await _auth.signInWithCredential(credential);
-
-      setState(() => _loading = false);
-
-      Navigator.pushReplacementNamed(context, "/home");
-
+      await _goHomeAfterSync();
     } catch (e) {
-      setState(() => _loading = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Google Sign-In failed: $e")),
+        SnackBar(content: Text('Google Sign-In failed: $e')),
       );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// 🔵 FACEBOOK AUTH
   Future<void> _signInWithFacebook() async {
     try {
       setState(() => _loading = true);
 
-      final LoginResult result =
-          await FacebookAuth.instance.login();
-
-      if (result.status != LoginStatus.success) {
+      final result = await FacebookAuth.instance.login();
+      if (result.status != LoginStatus.success || result.accessToken == null) {
+        if (!mounted) return;
         setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message ?? 'Facebook login cancelled')),
+        );
         return;
       }
 
-      final OAuthCredential facebookAuthCredential =
-          FacebookAuthProvider.credential(
-              result.accessToken!.token);
-
-      await _auth.signInWithCredential(facebookAuthCredential);
-
-      setState(() => _loading = false);
-
-      Navigator.pushReplacementNamed(context, "/home");
-
-    } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Facebook login failed: $e")),
+      final credential = FacebookAuthProvider.credential(
+        result.accessToken!.token,
       );
+      await _auth.signInWithCredential(credential);
+      await _goHomeAfterSync();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Facebook login failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -181,14 +190,11 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                   height: 260,
                   width: double.infinity,
                   color: const Color(0xFF0F172A),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        'assets/logo/delivo_logo.svg',
-                        height: 20,
-                      ),
-                    ),
+                  alignment: Alignment.topCenter,
+                  padding: const EdgeInsets.only(top: 40),
+                  child: SvgPicture.asset(
+                    'assets/logo/delivo_logo.svg',
+                    height: 20,
                   ),
                 ),
               ),
@@ -199,12 +205,10 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Let’s start with your phone number',
+                'Start with your phone number',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 20),
-
-              /// PHONE INPUT
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
@@ -212,8 +216,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                     GestureDetector(
                       onTap: _showCountryPicker,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(8),
@@ -244,10 +247,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              /// SMS BUTTON
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: SizedBox(
@@ -262,18 +262,14 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                     ),
                     onPressed: _loading ? null : _sendSmsCode,
                     child: _loading
-                        ? const CircularProgressIndicator(
-                            color: Colors.white)
+                        ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Continue with SMS'),
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
               const Text('or with'),
               const SizedBox(height: 16),
-
-              /// SOCIAL BUTTONS
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -282,10 +278,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                       text: 'Continue with Google',
                       background: Colors.white,
                       textColor: Colors.black,
-                      iconWidget: SvgPicture.asset(
-                        'assets/icons/google.svg',
-                        height: 20,
-                      ),
+                      iconWidget: SvgPicture.asset('assets/icons/google.svg', height: 20),
                       border: true,
                       onTap: _signInWithGoogle,
                     ),
@@ -307,10 +300,19 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
                         );
                       },
+                    ),
+                    const SizedBox(height: 14),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const DriverLoginScreen()),
+                        );
+                      },
+                      child: const Text('Delivery driver login'),
                     ),
                   ],
                 ),
@@ -337,14 +339,12 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           backgroundColor: background,
-          side: border
-              ? const BorderSide(color: Colors.grey)
-              : BorderSide.none,
+          side: border ? const BorderSide(color: Colors.grey) : BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
         ),
-        onPressed: onTap,
+        onPressed: _loading ? null : onTap,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
