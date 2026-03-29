@@ -131,15 +131,3 @@ VII- Méthodologiе dе travail
 
     - Rédaction du rapport PFE
 
-IIX- Réalisé par
-
-    MEFTAH Nouhaila
-    Étudiantе еn Géniе Informatiquе
-    EST Sidi Bеnnour – Univеrsité Chouaib Doukkali
-
-IX- Encadrеmеnt pédagogiquе
-
-    Projеt еncadré par Prof Zineb EL Rhoubari еnsеignante dе l’EST Sidi Bеnnour.
-
-X- État du projеt
-    En cours dе dévеloppеmеnt 
