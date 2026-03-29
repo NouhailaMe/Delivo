@@ -447,6 +447,7 @@ class _StoreCard extends StatelessWidget {
     final duration = (data['deliveryTime'] ?? '').toString();
     final promo = (data['promoText'] ?? '').toString();
     final logoAsset = (data['logoAsset'] ?? '').toString();
+    final logoUrl = (data['logoUrl'] ?? '').toString();
     final free = (data['freeDelivery'] as bool?) ?? false;
 
     return GestureDetector(
@@ -498,7 +499,7 @@ class _StoreCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (logoAsset.isNotEmpty)
+                if (logoUrl.isNotEmpty || logoAsset.isNotEmpty)
                   Positioned(
                     right: 10,
                     top: 10,
@@ -510,7 +511,7 @@ class _StoreCard extends StatelessWidget {
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
-                      child: SvgPicture.asset(logoAsset),
+                      child: _logoWidget(logoUrl, logoAsset),
                     ),
                   ),
               ],
@@ -571,5 +572,26 @@ class _StoreCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _logoWidget(String url, String asset) {
+    if (url.isNotEmpty) {
+      if (url.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.network(
+          url,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        );
+      }
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+    if (asset.isNotEmpty) {
+      return SvgPicture.asset(asset);
+    }
+    return const SizedBox.shrink();
   }
 }

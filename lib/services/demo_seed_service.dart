@@ -108,6 +108,18 @@ class DemoSeedService {
           'iconAsset': 'assets/icons/sub_burger.svg',
           'order': 4,
         },
+        {
+          'key': 'pizza',
+          'label': 'Pizza',
+          'iconAsset': 'assets/icons/sub_sandwich.svg',
+          'order': 5,
+        },
+        {
+          'key': 'coffee',
+          'label': 'Coffee',
+          'iconAsset': 'assets/icons/sub_sandwich.svg',
+          'order': 6,
+        },
       ],
       'groceries': [
         {'key': 'promotions', 'label': 'Promotions', 'iconAsset': 'assets/icons/sub_promo.svg', 'order': 1},
@@ -140,26 +152,42 @@ class DemoSeedService {
   }
 
   static Future<void> _seedHomeFeatured() async {
+    const staleFeaturedIds = ['saladbox', 'beauty_success'];
+    for (final id in staleFeaturedIds) {
+      try {
+        await _db.collection('home_featured').doc(id).delete();
+      } catch (_) {
+        // Ignore if missing.
+      }
+    }
+
     final featured = <String, Map<String, dynamic>>{
-      'mcdonalds': {
-        'name': "McDonald's",
-        'logoAsset': 'assets/stores/burger_king.svg',
+      'kfc': {
+        'name': 'KFC',
+        'logoAsset': 'assets/stores/kfc.svg',
         'order': 1,
-      },
-      'saladbox': {
-        'name': 'Saladbox',
-        'logoAsset': 'assets/stores/starbucks.svg',
-        'order': 2,
       },
       'burger_king': {
         'name': 'Burger King',
         'logoAsset': 'assets/stores/burger_king.svg',
+        'order': 2,
+      },
+      'pizza_hut': {
+        'name': 'Pizza Hut',
+        'logoAsset': 'assets/stores/pizza_hut.svg',
         'order': 3,
       },
-      'beauty_success': {
-        'name': 'Beauty Success',
-        'logoAsset': 'assets/icons/category_pharmacy.svg',
+      'starbucks': {
+        'name': 'Starbucks',
+        'logoAsset': 'assets/stores/starbucks.svg',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Starbucks_logo.jpg',
         'order': 4,
+      },
+      'mcdonalds': {
+        'name': "McDonald's",
+        'logoAsset': '',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/5/50/McDonald%27s_SVG_logo.svg',
+        'order': 5,
       },
     };
 
@@ -184,7 +212,7 @@ class DemoSeedService {
         'promoted': true,
         'promoText': '-36% some items',
         'imageUrl':
-            'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/a/a5/KFC_Zinger.jpg',
         'logoAsset': 'assets/stores/kfc.svg',
         'restaurantId': 'kfc',
         'priority': 1,
@@ -200,7 +228,7 @@ class DemoSeedService {
         'promoted': true,
         'promoText': '-47% some items',
         'imageUrl':
-            'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/c/c8/Whopper.jpg',
         'logoAsset': 'assets/stores/burger_king.svg',
         'restaurantId': 'burger_king',
         'priority': 2,
@@ -208,7 +236,7 @@ class DemoSeedService {
       'food_pizza_hut': {
         'categoryKey': 'food',
         'name': 'Pizza Hut',
-        'subcategory': 'sandwich',
+        'subcategory': 'pizza',
         'rating': 95,
         'ordersCount': '900+',
         'deliveryTime': '20-30 min',
@@ -216,7 +244,7 @@ class DemoSeedService {
         'promoted': false,
         'promoText': '',
         'imageUrl':
-            'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/d/d1/Pepperoni_pizza.jpg',
         'logoAsset': 'assets/stores/pizza_hut.svg',
         'restaurantId': 'pizza_hut',
         'priority': 3,
@@ -224,7 +252,7 @@ class DemoSeedService {
       'food_starbucks': {
         'categoryKey': 'food',
         'name': 'Starbucks',
-        'subcategory': 'sandwich',
+        'subcategory': 'coffee',
         'rating': 90,
         'ordersCount': '500+',
         'deliveryTime': '15-20 min',
@@ -232,8 +260,9 @@ class DemoSeedService {
         'promoted': false,
         'promoText': '',
         'imageUrl':
-            'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/f/f9/Caffe_Latte.jpg',
         'logoAsset': 'assets/stores/starbucks.svg',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Starbucks_logo.jpg',
         'restaurantId': 'starbucks',
         'priority': 4,
       },
@@ -248,8 +277,9 @@ class DemoSeedService {
         'promoted': true,
         'promoText': '-20% Big Mac',
         'imageUrl':
-            'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80',
-        'logoAsset': 'assets/stores/burger_king.svg',
+            'https://upload.wikimedia.org/wikipedia/commons/9/9a/Big_Mac_hamburger.jpg',
+        'logoAsset': '',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/5/50/McDonald%27s_SVG_logo.svg',
         'restaurantId': 'mcdonalds',
         'priority': 5,
       },
@@ -351,7 +381,7 @@ class DemoSeedService {
         'deliveryTime': '15-25 min',
         'freeDelivery': true,
         'coverImage':
-            'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/a/a5/KFC_Zinger.jpg',
       },
       'burger_king': {
         'name': 'Burger King',
@@ -362,7 +392,7 @@ class DemoSeedService {
         'deliveryTime': '15-25 min',
         'freeDelivery': true,
         'coverImage':
-            'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/c/c8/Whopper.jpg',
       },
       'pizza_hut': {
         'name': 'Pizza Hut',
@@ -373,7 +403,7 @@ class DemoSeedService {
         'deliveryTime': '20-30 min',
         'freeDelivery': true,
         'coverImage':
-            'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/d/d1/Pepperoni_pizza.jpg',
       },
       'starbucks': {
         'name': 'Starbucks',
@@ -384,7 +414,8 @@ class DemoSeedService {
         'deliveryTime': '15-20 min',
         'freeDelivery': true,
         'coverImage':
-            'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/f/f9/Caffe_Latte.jpg',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/d/d6/Starbucks_logo.jpg',
       },
       'carrefour': {
         'name': 'Carrefour',
@@ -417,7 +448,8 @@ class DemoSeedService {
         'deliveryTime': '10-20 min',
         'freeDelivery': true,
         'coverImage':
-            'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80',
+            'https://upload.wikimedia.org/wikipedia/commons/9/9a/Big_Mac_hamburger.jpg',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/5/50/McDonald%27s_SVG_logo.svg',
       },
     };
 
@@ -434,11 +466,11 @@ class DemoSeedService {
       'kfc': [
         {
           'id': 'zinger_burger',
-          'name': 'Zinger Burger',
+          'name': 'Original Recipe Chicken',
           'price': 58.0,
-          'description': 'Crispy chicken burger with spicy sauce.',
+          'description': 'Classic KFC fried chicken with signature seasoning.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/4/4b/KFC_Fried_chicken.jpg',
         },
       ],
       'burger_king': [
@@ -448,7 +480,7 @@ class DemoSeedService {
           'price': 62.0,
           'description': 'Flame grilled burger with fresh vegetables.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/c/c8/Whopper.jpg',
         },
       ],
       'pizza_hut': [
@@ -458,7 +490,7 @@ class DemoSeedService {
           'price': 89.0,
           'description': 'Classic pizza with pepperoni and cheese.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/d/d1/Pepperoni_pizza.jpg',
         },
       ],
       'starbucks': [
@@ -468,7 +500,7 @@ class DemoSeedService {
           'price': 38.0,
           'description': 'Smooth espresso with steamed milk.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/f/f9/Caffe_Latte.jpg',
         },
       ],
       'mcdonalds': [
@@ -478,7 +510,7 @@ class DemoSeedService {
           'price': 52.0,
           'description': 'Iconic double-patty burger with special sauce, lettuce and cheese.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/9/9a/Big_Mac_hamburger.jpg',
         },
         {
           'id': 'mcflurry',
@@ -486,7 +518,7 @@ class DemoSeedService {
           'price': 22.0,
           'description': 'Creamy soft-serve ice cream with mix-in toppings.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/9/94/McFlurry_%2810910146423%29.jpg',
         },
         {
           'id': 'fries_large',
@@ -494,7 +526,7 @@ class DemoSeedService {
           'price': 18.0,
           'description': 'Golden crispy French fries, lightly salted.',
           'imageUrl':
-              'https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=900&q=80',
+              'https://upload.wikimedia.org/wikipedia/commons/8/83/French_Fries.JPG',
         },
       ],
     };

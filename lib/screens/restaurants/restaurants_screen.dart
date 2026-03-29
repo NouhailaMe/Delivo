@@ -302,6 +302,7 @@ class _RestaurantCard extends StatelessWidget {
     final duration = (data['deliveryTime'] ?? '20-30 min').toString();
     final freeDelivery = (data['freeDelivery'] as bool?) ?? true;
     final fallbackCover = _fallbackCoverForName(name);
+    final logoUrl = data['logoUrl']?.toString();
     final logoAsset = _logoAssetForName(name);
 
     return GestureDetector(
@@ -347,7 +348,7 @@ class _RestaurantCard extends StatelessWidget {
                               errorBuilder: (_, __, ___) => _imageFallback(),
                             ),
                     ),
-                    if (logoAsset != null)
+                    if ((logoUrl != null && logoUrl.isNotEmpty) || logoAsset != null)
                       Positioned(
                         left: 12,
                         bottom: 12,
@@ -359,7 +360,7 @@ class _RestaurantCard extends StatelessWidget {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: SvgPicture.asset(logoAsset),
+                          child: _logoWidget(logoUrl, logoAsset),
                         ),
                       ),
                   ],
@@ -428,6 +429,27 @@ class _RestaurantCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _logoWidget(String? url, String? asset) {
+    if (url != null && url.isNotEmpty) {
+      if (url.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.network(
+          url,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        );
+      }
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+    if (asset != null) {
+      return SvgPicture.asset(asset);
+    }
+    return const SizedBox.shrink();
   }
 
   String _fallbackCoverForName(String name) {

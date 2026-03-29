@@ -251,6 +251,7 @@ class _HomeScreenState extends State<HomeScreen>
                                       child: _FeaturedCard(
                                         name: name,
                                         logoAsset: (data['logoAsset'] ?? '').toString(),
+                                        logoUrl: (data['logoUrl'] ?? '').toString(),
                                       ),
                                     );
                                   }).toList(),
@@ -302,6 +303,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     child: _StoreRow(
                                       name: (data['name'] ?? '').toString(),
                                       logoAsset: (data['logoAsset'] ?? '').toString(),
+                                      logoUrl: (data['logoUrl'] ?? '').toString(),
                                       rating: ((data['rating'] as num?) ?? 0).toInt(),
                                       duration: (data['deliveryTime'] ?? '').toString(),
                                     ),
@@ -482,10 +484,12 @@ class _CategoryBubble extends StatelessWidget {
 class _FeaturedCard extends StatelessWidget {
   final String name;
   final String logoAsset;
+  final String logoUrl;
 
   const _FeaturedCard({
     required this.name,
     required this.logoAsset,
+    required this.logoUrl,
   });
 
   @override
@@ -503,7 +507,7 @@ class _FeaturedCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
-              child: SvgPicture.asset(logoAsset),
+              child: _logoWidget(logoUrl, logoAsset),
             ),
           ),
           const SizedBox(height: 6),
@@ -521,17 +525,40 @@ class _FeaturedCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _logoWidget(String url, String asset) {
+    if (url.isNotEmpty) {
+      if (url.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.network(
+          url,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        );
+      }
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+    if (asset.isNotEmpty) {
+      return SvgPicture.asset(asset);
+    }
+    return const SizedBox.shrink();
+  }
 }
 
 class _StoreRow extends StatelessWidget {
   final String name;
   final String logoAsset;
+  final String logoUrl;
   final int rating;
   final String duration;
 
   const _StoreRow({
     required this.name,
     required this.logoAsset,
+    required this.logoUrl,
     required this.rating,
     required this.duration,
   });
@@ -556,7 +583,7 @@ class _StoreRow extends StatelessWidget {
               color: const Color(0xFFF5F6F8),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: SvgPicture.asset(logoAsset),
+            child: _logoWidget(logoUrl, logoAsset),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -592,5 +619,26 @@ class _StoreRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _logoWidget(String url, String asset) {
+    if (url.isNotEmpty) {
+      if (url.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.network(
+          url,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        );
+      }
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+    if (asset.isNotEmpty) {
+      return SvgPicture.asset(asset);
+    }
+    return const SizedBox.shrink();
   }
 }

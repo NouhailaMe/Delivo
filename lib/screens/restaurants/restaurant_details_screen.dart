@@ -224,11 +224,7 @@ class _Header extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(18),
                     child: logo != null && logo.isNotEmpty
-                        ? Image.network(
-                            logo,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _logoFallback(displayName),
-                          )
+                        ? _networkLogo(logo, displayName)
                         : _logoFallback(displayName, assetLogo: fallbackAssetLogo),
                   ),
                 ),
@@ -305,6 +301,26 @@ class _Header extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _networkLogo(String url, String name) {
+    if (url.toLowerCase().endsWith('.svg')) {
+      return Container(
+        color: Colors.white,
+        padding: const EdgeInsets.all(10),
+        child: SvgPicture.network(
+          url,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => _logoFallback(name),
+        ),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _logoFallback(name),
     );
   }
 
