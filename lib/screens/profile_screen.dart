@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/order_service.dart';
 import '../services/user_profile_service.dart';
@@ -17,6 +18,11 @@ class ProfileScreen extends StatelessWidget {
   static const navy = Color(0xFF0F172A);
 
   Future<void> _logout(BuildContext context) async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {
+      // Ignore if not signed in with Google.
+    }
     await FirebaseAuth.instance.signOut();
     if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(

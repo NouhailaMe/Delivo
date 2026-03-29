@@ -10,6 +10,7 @@ class DemoSeedService {
 
     // Clean up old Ramadan entries that may still exist in Firestore
     await _cleanupRamadan();
+    await _cleanupDeprecatedRestaurants();
 
     await _seedHomeCategories();
     await _seedHomeFeatured();
@@ -31,6 +32,21 @@ class DemoSeedService {
       await _db.collection('home_featured').doc('ramadan').delete();
       // Remove ramadan category item
       // (food_starbucks was mistakenly tagged as ramadan subcategory — fixed via merge)
+    } catch (_) {
+      // Ignore if documents don't exist
+    }
+  }
+
+  static Future<void> _cleanupDeprecatedRestaurants() async {
+    try {
+      await _db.collection('category_items').doc('food_otacos').delete();
+      await _db.collection('restaurants').doc('otacos').delete();
+      await _db
+          .collection('home_categories')
+          .doc('food')
+          .collection('subcategories')
+          .doc('tacos')
+          .delete();
     } catch (_) {
       // Ignore if documents don't exist
     }
@@ -283,6 +299,23 @@ class DemoSeedService {
         'restaurantId': 'mcdonalds',
         'priority': 5,
       },
+      'food_quick': {
+        'categoryKey': 'food',
+        'name': 'Quick',
+        'subcategory': 'burgers',
+        'rating': 94,
+        'ordersCount': '700+',
+        'deliveryTime': '15-25 min',
+        'freeDelivery': true,
+        'promoted': true,
+        'promoText': '-20% some items',
+        'imageUrl':
+            'https://upload.wikimedia.org/wikipedia/commons/c/c3/Quick_Burger_hamburgers_and_fries.jpg',
+        'logoAsset': '',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/2/2d/Quick_restaurant_logo.png',
+        'restaurantId': 'quick',
+        'priority': 6,
+      },
       'groceries_carrefour': {
         'categoryKey': 'groceries',
         'name': 'Carrefour',
@@ -451,6 +484,18 @@ class DemoSeedService {
             'https://upload.wikimedia.org/wikipedia/commons/9/9a/Big_Mac_hamburger.jpg',
         'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/5/50/McDonald%27s_SVG_logo.svg',
       },
+      'quick': {
+        'name': 'Quick',
+        'category': 'Fast Food',
+        'categoryKey': 'food',
+        'deliveryType': 'takeaway',
+        'rating': 4.6,
+        'deliveryTime': '15-25 min',
+        'freeDelivery': true,
+        'coverImage':
+            'https://upload.wikimedia.org/wikipedia/commons/c/c3/Quick_Burger_hamburgers_and_fries.jpg',
+        'logoUrl': 'https://upload.wikimedia.org/wikipedia/commons/2/2d/Quick_restaurant_logo.png',
+      },
     };
 
     for (final entry in restaurants.entries) {
@@ -527,6 +572,16 @@ class DemoSeedService {
           'description': 'Golden crispy French fries, lightly salted.',
           'imageUrl':
               'https://upload.wikimedia.org/wikipedia/commons/8/83/French_Fries.JPG',
+        },
+      ],
+      'quick': [
+        {
+          'id': 'quick_burger',
+          'name': 'Quick Burger',
+          'price': 55.0,
+          'description': 'Signature burger with fries and sauce.',
+          'imageUrl':
+              'https://upload.wikimedia.org/wikipedia/commons/c/c3/Quick_Burger_hamburgers_and_fries.jpg',
         },
       ],
     };

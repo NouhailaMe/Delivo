@@ -22,7 +22,6 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   provider: ^6.1.2
   google_sign_in: ^6.2.1
-  flutter_facebook_auth: ^6.0.4
   flutter_svg: ^2.0.9
   cupertino_icons: ^1.0.8
 

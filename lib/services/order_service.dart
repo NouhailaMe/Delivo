@@ -137,4 +137,29 @@ class OrderService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<bool> cancelOrder({
+    required String orderId,
+    required String userId,
+  }) async {
+    return _db.runTransaction<bool>((transaction) async {
+      final ref = _orders.doc(orderId);
+      final snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return false;
+
+      final data = snapshot.data() ?? const <String, dynamic>{};
+      final status = (data['status'] ?? '').toString();
+      final owner = (data['userId'] ?? '').toString();
+      if (status != OrderStatus.pending || owner != userId) {
+        return false;
+      }
+
+      transaction.update(ref, {
+        'status': OrderStatus.cancelled,
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+  }
 }

@@ -56,12 +56,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   final List<_BigCardStore> _lovedByLocals = const [
     _BigCardStore(
-      name: "O'Tacos",
-      restaurantId: 'pizza_hut',
+      name: 'Quick',
+      restaurantId: 'quick',
       rating: '90%',
       duration: '5-15 min',
       imageUrl:
-          'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1200&q=80',
+          'https://upload.wikimedia.org/wikipedia/commons/c/c3/Quick_Burger_hamburgers_and_fries.jpg',
     ),
     _BigCardStore(
       name: "McDonald's",

@@ -1,12 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../services/phone_auth_service.dart';
 import '../../services/user_profile_service.dart';
 import '../../widgets/ellipse_clipper.dart';
+import '../admin/admin_login_screen.dart';
 import 'driver_login_screen.dart';
 import 'login_screen.dart';
 import 'otp_screen.dart';
@@ -20,6 +20,7 @@ class LoginSignupScreen extends StatefulWidget {
 
 class _LoginSignupScreenState extends State<LoginSignupScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final PhoneAuthService _phoneAuthService = PhoneAuthService();
   final TextEditingController _phoneController = TextEditingController();
 
@@ -120,7 +121,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
     try {
       setState(() => _loading = true);
 
-      final googleUser = await GoogleSignIn().signIn();
+      await _googleSignIn.signOut();
+      final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         if (!mounted) return;
         setState(() => _loading = false);
@@ -139,35 +141,6 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google Sign-In failed: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _signInWithFacebook() async {
-    try {
-      setState(() => _loading = true);
-
-      final result = await FacebookAuth.instance.login();
-      if (result.status != LoginStatus.success || result.accessToken == null) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Facebook login cancelled')),
-        );
-        return;
-      }
-
-      final credential = FacebookAuthProvider.credential(
-        result.accessToken!.token,
-      );
-      await _auth.signInWithCredential(credential);
-      await _goHomeAfterSync();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Facebook login failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -285,14 +258,6 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                     ),
                     const SizedBox(height: 12),
                     _socialButton(
-                      text: 'Continue with Facebook',
-                      background: const Color(0xFF1877F2),
-                      textColor: Colors.white,
-                      icon: Icons.facebook,
-                      onTap: _signInWithFacebook,
-                    ),
-                    const SizedBox(height: 12),
-                    _socialButton(
                       text: 'Continue with Email',
                       background: Colors.white,
                       textColor: const Color(0xFF0F172A),
@@ -314,6 +279,15 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                         );
                       },
                       child: const Text('Delivery driver login'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+                        );
+                      },
+                      child: const Text('Admin login'),
                     ),
                   ],
                 ),

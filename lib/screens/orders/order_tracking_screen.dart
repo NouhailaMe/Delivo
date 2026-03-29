@@ -33,9 +33,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
           final data = snapshot.data!.data() ?? const <String, dynamic>{};
           final status = (data['status'] ?? '').toString();
+          final driverId = (data['driverId'] ?? '').toString();
           final deliveryAddress = (data['deliveryAddress'] is Map)
               ? Map<String, dynamic>.from(data['deliveryAddress'] as Map)
               : const <String, dynamic>{};
+          final canCancel =
+              status == OrderStatus.pending && (driverId.isEmpty);
 
           final deliveryLat = (deliveryAddress['latitude'] as num?)?.toDouble() ??
               (data['deliveryLat'] as num?)?.toDouble() ??
@@ -158,6 +161,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       ),
                       const SizedBox(height: 12),
                       _ProgressPills(current: status),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                canCancel ? navy : const Color(0xFF9CA3AF),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: canCancel
+                              ? () => _cancelOrder(context, widget.orderId)
+                              : null,
+                          child: const Text(
+                            'Cancel Order',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -173,6 +198,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     switch (status) {
       case OrderStatus.pending:
         return 'Searching courier';
+      case OrderStatus.cancelled:
+        return 'Order cancelled';
       case OrderStatus.accepted:
         return 'Courier accepted';
       case OrderStatus.pickedUp:
@@ -190,6 +217,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     switch (status) {
       case OrderStatus.pending:
         return 'Your order is waiting for a courier to accept it.';
+      case OrderStatus.cancelled:
+        return 'Your order was cancelled before a courier accepted it.';
       case OrderStatus.accepted:
         return 'The courier is heading to the restaurant.';
       case OrderStatus.pickedUp:
@@ -200,6 +229,42 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         return 'Enjoy your meal.';
       default:
         return 'Live updates appear here.';
+    }
+  }
+
+  Future<void> _cancelOrder(BuildContext context, String orderId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel order'),
+        content: const Text('Do you want to cancel this order?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes, cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    final userId = _service.currentUserId;
+    if (userId == null) return;
+
+    final ok = await _service.cancelOrder(orderId: orderId, userId: userId);
+    if (!context.mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order cancelled')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot cancel after courier accepts')),
+      );
     }
   }
 }
