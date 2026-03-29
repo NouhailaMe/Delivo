@@ -98,6 +98,9 @@ switch (e.code) {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+              ),
               onPressed: _loading ? null : _login,
               child: const Text('Log in'),
             ),

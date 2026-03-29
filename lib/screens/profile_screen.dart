@@ -70,25 +70,87 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _promocodes(BuildContext context) {
+    final promoController = TextEditingController();
+    final validCodes = {'WELCOME10': '10% off your next order', 'FREEDEL': 'Free delivery for 1 order'};
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 26),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'Promocodes',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: navy),
-            ),
-            SizedBox(height: 12),
-            _PromoTile(code: 'WELCOME10', desc: '10% off your next order'),
-            _PromoTile(code: 'FREEDEL', desc: 'Free delivery for 1 order'),
-          ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Promocodes',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: navy),
+              ),
+              const SizedBox(height: 16),
+              const _PromoTile(code: 'WELCOME10', desc: '10% off your next order'),
+              const _PromoTile(code: 'FREEDEL', desc: 'Free delivery for 1 order'),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 12),
+              const Text(
+                'Enter a promo code',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: navy),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: promoController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. WELCOME10',
+                        filled: true,
+                        fillColor: const Color(0xFFF3F4F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: navy,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      final code = promoController.text.trim().toUpperCase();
+                      Navigator.pop(ctx);
+                      if (validCodes.containsKey(code)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✅ Code applied: ${validCodes[code]}'),
+                            backgroundColor: const Color(0xFF0D8A6A),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('❌ Invalid promo code'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -161,6 +223,7 @@ class ProfileScreen extends StatelessWidget {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // ── Header ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -206,6 +269,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+
+              // ── Account Section ──
               _sectionTitle('Account'),
               _menuItem(
                 context: context,
@@ -215,6 +280,12 @@ class ProfileScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(builder: (_) => const OrdersScreen()),
                 ),
+              ),
+              _menuItem(
+                context: context,
+                icon: Icons.history,
+                label: 'Order history',
+                onTap: () => _showOrderHistory(context),
               ),
               _menuItem(
                 context: context,
@@ -269,6 +340,20 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showOrderHistory(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to see your order history')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _OrderHistoryScreen(uid: uid)),
     );
   }
 
@@ -328,6 +413,138 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
+// ── Order History Screen ──────────────────────────────────────────────────────
+class _OrderHistoryScreen extends StatelessWidget {
+  final String uid;
+  const _OrderHistoryScreen({required this.uid});
+
+  static const navy = Color(0xFF0F172A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F8),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: navy,
+        title: const Text('Order History', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('orders')
+            .where('userId', isEqualTo: uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? [];
+          // Only show completed orders in history
+          final history = docs.where((doc) {
+            final status = (doc.data()['status'] ?? '').toString();
+            return status == 'delivered' || status == 'completed';
+          }).toList();
+
+          if (history.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.history, size: 72, color: Color(0xFFD1D5DB)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No order history yet',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: navy,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Your completed orders will appear here',
+                    style: TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: history.length,
+            itemBuilder: (context, index) {
+              final data = history[index].data();
+              final restaurant = (data['restaurantName'] ?? 'Restaurant').toString();
+              final total = ((data['total'] as num?) ?? 0).toDouble();
+              final itemsCount = (data['itemsCount'] as num?)?.toInt() ?? 0;
+              final createdAt = data['createdAt'];
+              String dateStr = '';
+              if (createdAt is Timestamp) {
+                final dt = createdAt.toDate();
+                dateStr = '${dt.day}/${dt.month}/${dt.year}';
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDEFF3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.check_circle_outline, color: Color(0xFF0D8A6A)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            restaurant,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: navy,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$itemsCount item${itemsCount > 1 ? 's' : ''}${dateStr.isNotEmpty ? ' · $dateStr' : ''}',
+                            style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${total.toStringAsFixed(2)} MAD',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: navy,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Promo Tile ────────────────────────────────────────────────────────────────
 class _PromoTile extends StatelessWidget {
   final String code;
   final String desc;
@@ -368,6 +585,7 @@ class _PromoTile extends StatelessWidget {
   }
 }
 
+// ── FAQ Screen ────────────────────────────────────────────────────────────────
 class _FaqScreen extends StatelessWidget {
   const _FaqScreen();
 

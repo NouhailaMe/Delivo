@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/location_service.dart';
 import 'location/location_picker_screen.dart';
+import 'restaurants/restaurant_details_screen.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -15,11 +16,13 @@ class DiscoverScreen extends StatefulWidget {
 class _DiscoverScreenState extends State<DiscoverScreen> {
   static const navy = Color(0xFF0F172A);
   final TextEditingController _searchController = TextEditingController();
+  bool _showSearchBar = false;
 
   final List<_TrendingItem> _crowdPleasers = const [
     _TrendingItem(
       rank: 1,
       name: 'Pizza Hut',
+      restaurantId: 'pizza_hut',
       rating: '95%',
       promo: '-15% on selected pizzas',
       logoAsset: 'assets/stores/pizza_hut.svg',
@@ -27,6 +30,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     _TrendingItem(
       rank: 2,
       name: 'KFC',
+      restaurantId: 'kfc',
       rating: '98%',
       promo: 'Free delivery',
       logoAsset: 'assets/stores/kfc.svg',
@@ -34,6 +38,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     _TrendingItem(
       rank: 3,
       name: 'Burger King',
+      restaurantId: 'burger_king',
       rating: '94%',
       promo: 'Combo offers',
       logoAsset: 'assets/stores/burger_king.svg',
@@ -41,26 +46,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   ];
 
   final List<_LogoStore> _topRestaurants = const [
-    _LogoStore(name: 'Pizza Hut', logoAsset: 'assets/stores/pizza_hut.svg'),
-    _LogoStore(name: 'KFC', logoAsset: 'assets/stores/kfc.svg'),
-    _LogoStore(name: 'Burger King', logoAsset: 'assets/stores/burger_king.svg'),
-    _LogoStore(name: 'Starbucks', logoAsset: 'assets/stores/starbucks.svg'),
+    _LogoStore(name: 'Pizza Hut', restaurantId: 'pizza_hut', logoAsset: 'assets/stores/pizza_hut.svg'),
+    _LogoStore(name: 'KFC', restaurantId: 'kfc', logoAsset: 'assets/stores/kfc.svg'),
+    _LogoStore(name: 'Burger King', restaurantId: 'burger_king', logoAsset: 'assets/stores/burger_king.svg'),
+    _LogoStore(name: 'Starbucks', restaurantId: 'starbucks', logoAsset: 'assets/stores/starbucks.svg'),
   ];
 
   final List<_BigCardStore> _lovedByLocals = const [
     _BigCardStore(
       name: "O'Tacos",
+      restaurantId: 'pizza_hut',
       rating: '90%',
       duration: '5-15 min',
       imageUrl:
           'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1200&q=80',
     ),
     _BigCardStore(
-      name: 'Chef Thon',
-      rating: '96%',
+      name: "McDonald's",
+      restaurantId: 'mcdonalds',
+      rating: '92%',
       duration: '10-20 min',
       imageUrl:
-          'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+          'https://images.unsplash.com/photo-1561758033-d89a9ad46330?auto=format&fit=crop&w=1200&q=80',
     ),
   ];
 
@@ -86,6 +93,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
     if (picked == null) return;
     await LocationService.saveUserLocation(uid: user.uid, location: picked);
+  }
+
+  void _openRestaurant(String restaurantId, String name) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RestaurantDetailsScreen(
+          restaurantId: restaurantId,
+          name: name,
+          category: 'Food',
+        ),
+      ),
+    );
   }
 
   @override
@@ -169,40 +189,52 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                               ),
                             ),
                           ),
-                          Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.travel_explore,
-                              color: Colors.white,
-                              size: 44,
+                          // 🔍 Search button
+                          GestureDetector(
+                            onTap: () => setState(() => _showSearchBar = !_showSearchBar),
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.search,
+                                color: Colors.white,
+                                size: 28,
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      if (_showSearchBar) ...[
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Search restaurants…',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close, color: Colors.white70),
+                                    onPressed: () => setState(() => _searchController.clear()),
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.15),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'Search in Discover',
-                      hintStyle: const TextStyle(color: Color(0xFF8B919E)),
-                      prefixIcon: const Icon(Icons.search, color: Color(0xFF8B919E)),
-                      filled: true,
-                      fillColor: const Color(0xFFEFF1F4),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -213,10 +245,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     scrollDirection: Axis.horizontal,
                     children: _crowdPleasers
-                        .map((item) => Container(
-                              width: 320,
-                              margin: const EdgeInsets.only(right: 12),
-                              child: _rankItem(item),
+                        .map((item) => GestureDetector(
+                              onTap: () => _openRestaurant(item.restaurantId, item.name),
+                              child: Container(
+                                width: 320,
+                                margin: const EdgeInsets.only(right: 12),
+                                child: _rankItem(item),
+                              ),
                             ))
                         .toList(),
                   ),
@@ -230,35 +265,38 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     scrollDirection: Axis.horizontal,
                     children: _topRestaurants
-                        .map((store) => Container(
-                              width: 132,
-                              margin: const EdgeInsets.only(right: 10),
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(18),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        .map((store) => GestureDetector(
+                              onTap: () => _openRestaurant(store.restaurantId, store.name),
+                              child: Container(
+                                width: 132,
+                                margin: const EdgeInsets.only(right: 10),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                                        ),
+                                        child: SvgPicture.asset(store.logoAsset),
                                       ),
-                                      child: SvgPicture.asset(store.logoAsset),
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFCD4A),
-                                      borderRadius: BorderRadius.circular(8),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFCD4A),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'Free',
+                                        style: TextStyle(fontWeight: FontWeight.w700, color: navy),
+                                      ),
                                     ),
-                                    child: const Text(
-                                      'Free',
-                                      style: TextStyle(fontWeight: FontWeight.w700, color: navy),
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ))
                         .toList(),
@@ -267,7 +305,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 const SizedBox(height: 16),
                 _sectionTitle('Loved by locals', 'Currently popular near you'),
                 const SizedBox(height: 8),
-                ...filteredCards.map((store) => _largeStoreCard(store)),
+                ...filteredCards.map((store) => GestureDetector(
+                      onTap: () => _openRestaurant(store.restaurantId, store.name),
+                      child: _largeStoreCard(store),
+                    )),
               ],
             );
           },
@@ -451,6 +492,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 class _TrendingItem {
   final int rank;
   final String name;
+  final String restaurantId;
   final String rating;
   final String promo;
   final String logoAsset;
@@ -458,6 +500,7 @@ class _TrendingItem {
   const _TrendingItem({
     required this.rank,
     required this.name,
+    required this.restaurantId,
     required this.rating,
     required this.promo,
     required this.logoAsset,
@@ -466,22 +509,26 @@ class _TrendingItem {
 
 class _LogoStore {
   final String name;
+  final String restaurantId;
   final String logoAsset;
 
   const _LogoStore({
     required this.name,
+    required this.restaurantId,
     required this.logoAsset,
   });
 }
 
 class _BigCardStore {
   final String name;
+  final String restaurantId;
   final String rating;
   final String duration;
   final String imageUrl;
 
   const _BigCardStore({
     required this.name,
+    required this.restaurantId,
     required this.rating,
     required this.duration,
     required this.imageUrl,

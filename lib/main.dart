@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,12 @@ class MyApp extends StatelessWidget {
       title: 'DELIVO',
       theme: ThemeData(
         primaryColor: const Color(0xFF0F172A),
+        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0F172A),
+          primary: const Color(0xFF0F172A),
+          secondary: const Color(0xFFECF1FF),
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF0F172A),
           foregroundColor: Colors.white,
@@ -39,7 +46,20 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (_) => const MainLayout(),
       },
-      home: const OnboardingScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasData && snapshot.data != null) {
+            return const MainLayout();
+          }
+          return const OnboardingScreen();
+        },
+      ),
     );
   }
 }
