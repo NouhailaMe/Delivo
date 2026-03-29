@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/cart_item.dart';
 import '../../services/cart_service.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/favorite_button.dart';
 import '../cart/cart_screen.dart';
 import '../products/product_details_sheet.dart';
 
@@ -25,6 +27,40 @@ class RestaurantDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _RestaurantDetailsBody(
+      restaurantId: restaurantId,
+      name: name,
+      category: category,
+    );
+  }
+}
+
+class _RestaurantDetailsBody extends StatefulWidget {
+  final String restaurantId;
+  final String name;
+  final String category;
+
+  const _RestaurantDetailsBody({
+    required this.restaurantId,
+    required this.name,
+    required this.category,
+  });
+
+  @override
+  State<_RestaurantDetailsBody> createState() => _RestaurantDetailsBodyState();
+}
+
+class _RestaurantDetailsBodyState extends State<_RestaurantDetailsBody> {
+  late String _selectedFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFilter = widget.category.isNotEmpty ? widget.category : 'Products';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cart = context.watch<CartService>();
 
     return Scaffold(
@@ -32,7 +68,7 @@ class RestaurantDetailsScreen extends StatelessWidget {
       body: Stack(
         children: [
           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: FirestoreService().getRestaurantById(restaurantId),
+            stream: FirestoreService().getRestaurantById(widget.restaurantId),
             builder: (context, snapshot) {
               final restaurant = snapshot.data?.data() ?? const {};
 
@@ -41,20 +77,24 @@ class RestaurantDetailsScreen extends StatelessWidget {
                   SliverToBoxAdapter(
                     child: _Header(
                       restaurant: restaurant,
-                      fallbackName: name,
+                      fallbackName: widget.name,
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: _InfoSection(
                       restaurant: restaurant,
-                      category: category,
+                      category: widget.category,
+                      selectedFilter: _selectedFilter,
+                      onFilterSelected: (value) => setState(() => _selectedFilter = value),
                     ),
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
                     sliver: _ProductsGrid(
-                      restaurantId: restaurantId,
-                      restaurantName: (restaurant['name'] ?? name).toString(),
+                      restaurantId: widget.restaurantId,
+                      restaurantName: (restaurant['name'] ?? widget.name).toString(),
+                      selectedFilter: _selectedFilter,
+                      categoryLabel: widget.category,
                     ),
                   ),
                 ],
@@ -68,7 +108,7 @@ class RestaurantDetailsScreen extends StatelessWidget {
               bottom: 20,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: green,
+                  backgroundColor: RestaurantDetailsScreen.green,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 58),
                   shape: RoundedRectangleBorder(
@@ -82,7 +122,7 @@ class RestaurantDetailsScreen extends StatelessWidget {
                   );
                 },
                 child: Text(
-                  'Go to cart  ·  ${cart.totalPrice.toStringAsFixed(2)} MAD',
+                  'Go to cart - ${cart.totalPrice.toStringAsFixed(2)} MAD',
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
@@ -158,11 +198,6 @@ class _Header extends StatelessWidget {
                     onTap: () => Navigator.pop(context),
                   ),
                   const Spacer(),
-                  _roundIcon(icon: Icons.search),
-                  const SizedBox(width: 8),
-                  _roundIcon(icon: Icons.favorite_border),
-                  const SizedBox(width: 8),
-                  _roundIcon(icon: Icons.more_horiz),
                 ],
               ),
             ),
@@ -305,10 +340,14 @@ class _Header extends StatelessWidget {
 class _InfoSection extends StatelessWidget {
   final Map<String, dynamic> restaurant;
   final String category;
+  final String selectedFilter;
+  final ValueChanged<String> onFilterSelected;
 
   const _InfoSection({
     required this.restaurant,
     required this.category,
+    required this.selectedFilter,
+    required this.onFilterSelected,
   });
 
   @override
@@ -356,11 +395,23 @@ class _InfoSection extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _tab(category.isNotEmpty ? category : 'Products', selected: true),
+                _tab(
+                  category.isNotEmpty ? category : 'Products',
+                  selected: selectedFilter == (category.isNotEmpty ? category : 'Products'),
+                  onTap: () => onFilterSelected(category.isNotEmpty ? category : 'Products'),
+                ),
                 const SizedBox(width: 10),
-                _tab('Popular'),
+                _tab(
+                  'Popular',
+                  selected: selectedFilter == 'Popular',
+                  onTap: () => onFilterSelected('Popular'),
+                ),
                 const SizedBox(width: 10),
-                _tab('New'),
+                _tab(
+                  'New',
+                  selected: selectedFilter == 'New',
+                  onTap: () => onFilterSelected('New'),
+                ),
               ],
             ),
           ),
@@ -420,19 +471,27 @@ class _InfoSection extends StatelessWidget {
     );
   }
 
-  Widget _tab(String label, {bool selected = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: BoxDecoration(
-        color: selected ? RestaurantDetailsScreen.navy : const Color(0xFFE6E7EB),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: selected ? Colors.white : RestaurantDetailsScreen.navy,
-          fontWeight: FontWeight.w700,
+  Widget _tab(
+    String label, {
+    bool selected = false,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: selected ? RestaurantDetailsScreen.navy : const Color(0xFFE6E7EB),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : RestaurantDetailsScreen.navy,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -442,10 +501,14 @@ class _InfoSection extends StatelessWidget {
 class _ProductsGrid extends StatelessWidget {
   final String restaurantId;
   final String restaurantName;
+  final String selectedFilter;
+  final String categoryLabel;
 
   const _ProductsGrid({
     required this.restaurantId,
     required this.restaurantName,
+    required this.selectedFilter,
+    required this.categoryLabel,
   });
 
   @override
@@ -459,7 +522,54 @@ class _ProductsGrid extends StatelessWidget {
           );
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        var docs = snapshot.data?.docs ?? [];
+
+        final baseFilter = categoryLabel.isNotEmpty ? categoryLabel : 'Products';
+        if (selectedFilter != baseFilter) {
+          if (selectedFilter == 'Popular') {
+            final popular = docs.where((doc) {
+              final data = doc.data();
+              final tags = (data['tags'] as List?)
+                      ?.map((e) => e.toString().toLowerCase())
+                      .toList() ??
+                  [];
+              return data['isPopular'] == true || tags.contains('popular');
+            }).toList();
+            if (popular.isNotEmpty) {
+              docs = popular;
+            } else {
+              docs.sort((a, b) {
+                final left = (a.data()['price'] as num?)?.toDouble() ?? 0;
+                final right = (b.data()['price'] as num?)?.toDouble() ?? 0;
+                return right.compareTo(left);
+              });
+            }
+          } else if (selectedFilter == 'New') {
+            final fresh = docs.where((doc) {
+              final data = doc.data();
+              final tags = (data['tags'] as List?)
+                      ?.map((e) => e.toString().toLowerCase())
+                      .toList() ??
+                  [];
+              return data['isNew'] == true || tags.contains('new');
+            }).toList();
+            if (fresh.isNotEmpty) {
+              docs = fresh;
+            } else {
+              docs.sort((a, b) {
+                final left = a.data()['createdAt'];
+                final right = b.data()['createdAt'];
+                if (left is Timestamp && right is Timestamp) {
+                  return right.compareTo(left);
+                }
+                return (b.data()['name'] ?? '')
+                    .toString()
+                    .compareTo((a.data()['name'] ?? '').toString());
+              });
+            }
+          }
+        }
+
         if (docs.isEmpty) {
           return const SliverFillRemaining(
             child: Center(
@@ -480,6 +590,8 @@ class _ProductsGrid extends StatelessWidget {
 
               return _ProductCard(
                 data: data,
+                restaurantId: restaurantId,
+                restaurantName: restaurantName,
                 onTap: () {
                   showModalBottomSheet(
                     context: context,
@@ -510,15 +622,20 @@ class _ProductsGrid extends StatelessWidget {
 
 class _ProductCard extends StatelessWidget {
   final Map<String, dynamic> data;
+  final String restaurantId;
+  final String restaurantName;
   final VoidCallback onTap;
 
   const _ProductCard({
     required this.data,
+    required this.restaurantId,
+    required this.restaurantName,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final productId = (data['id'] ?? '').toString();
     final name = (data['name'] ?? '').toString();
     final image = data['imageUrl']?.toString();
     final price = (data['price'] as num?)?.toDouble() ?? 0;
@@ -552,16 +669,39 @@ class _ProductCard extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      right: 8,
-                      bottom: 8,
+                      left: 6,
+                      top: 6,
                       child: Container(
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(Icons.add, color: RestaurantDetailsScreen.navy),
+                        child: FavoriteButton(
+                          restaurantId: restaurantId,
+                          restaurantName: restaurantName,
+                          productId: productId,
+                          name: name,
+                          imageUrl: image,
+                          price: price,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: InkWell(
+                        onTap: () => _addToCart(context, productId, name, image, price),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(Icons.add, color: RestaurantDetailsScreen.navy),
+                          ),
                         ),
                       ),
                     ),
@@ -591,6 +731,31 @@ class _ProductCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _addToCart(
+    BuildContext context,
+    String productId,
+    String name,
+    String? imageUrl,
+    double price,
+  ) {
+    context.read<CartService>().addToCart(
+          item: CartItem(
+            productId: productId,
+            restaurantId: restaurantId,
+            name: name,
+            imageUrl: imageUrl,
+            price: price,
+            quantity: 1,
+            options: const {},
+          ),
+          restaurantName: restaurantName,
+        );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$name added to cart')),
     );
   }
 

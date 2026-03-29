@@ -380,7 +380,6 @@ class _RestaurantCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Icon(Icons.favorite_border, color: _RestaurantsScreenState.navy),
               ],
             ),
             const SizedBox(height: 4),

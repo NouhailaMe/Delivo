@@ -1,12 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
 import '../../services/cart_service.dart';
-import '../../services/firestore_service.dart';
 import '../checkout/checkout_screen.dart';
-import '../products/product_details_sheet.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -135,17 +132,6 @@ class _CartBody extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           ...cart.items.map((item) => _CartItemTile(item: item)),
-          const SizedBox(height: 30),
-          const Text(
-            'You might also like',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: CartScreen.navy,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _Suggestions(restaurantId: cart.restaurantId),
         ],
       ),
     );
@@ -230,133 +216,6 @@ class _CartItemTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Suggestions extends StatelessWidget {
-  final String? restaurantId;
-
-  const _Suggestions({required this.restaurantId});
-
-  @override
-  Widget build(BuildContext context) {
-    if (restaurantId == null) {
-      return const SizedBox.shrink();
-    }
-
-    final cart = context.watch<CartService>();
-    final inCartIds = cart.items.map((e) => e.productId).toSet();
-
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirestoreService().getRestaurantProducts(restaurantId!),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final docs = snapshot.data!.docs
-            .where((doc) => !inCartIds.contains(doc.id))
-            .take(2)
-            .toList();
-
-        if (docs.isEmpty) return const SizedBox.shrink();
-
-        return Row(
-          children: docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    builder: (_) => ProductDetailsSheet(
-                      productData: data,
-                      restaurantId: restaurantId!,
-                      restaurantName: cart.restaurantName ?? 'Restaurant',
-                    ),
-                  );
-                },
-                child: Container(
-                  margin: EdgeInsets.only(right: doc == docs.first ? 12 : 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        children: [
-                          Container(
-                            height: 165,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: _suggestionImage(data['imageUrl']?.toString()),
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.all(7),
-                                child: Icon(Icons.add, color: CartScreen.navy),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        (data['name'] ?? '').toString(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: CartScreen.navy,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${((data['price'] as num?) ?? 0).toStringAsFixed(2)} MAD',
-                        style: const TextStyle(fontSize: 15, color: Color(0xFF374151)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _suggestionImage(String? imageUrl) {
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          color: const Color(0xFFEFEFEF),
-          child: const Icon(Icons.fastfood, color: Color(0xFF6B7280)),
-        ),
-      );
-    }
-
-    return Container(
-      color: const Color(0xFFEFEFEF),
-      child: const Icon(Icons.fastfood, color: Color(0xFF6B7280)),
     );
   }
 }

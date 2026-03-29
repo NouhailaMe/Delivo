@@ -533,7 +533,6 @@ class _StoreCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Icon(Icons.favorite_border, color: _CategoryScreenState.navy),
                     ],
                   ),
                   const SizedBox(height: 5),

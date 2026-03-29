@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../models/payment_card.dart';
+import '../services/payment_card_service.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -9,8 +13,6 @@ class PaymentMethodsScreen extends StatefulWidget {
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   static const navy = Color(0xFF0F172A);
-
-  final List<_PaymentCard> _cards = [];
 
   void _addCard() {
     final numberCtrl = TextEditingController();
@@ -77,26 +79,35 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (numberCtrl.text.length < 4) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please enter a valid card number')),
                       );
                       return;
                     }
-                    final last4 = numberCtrl.text.replaceAll(' ', '');
-                    setState(() {
-                      _cards.add(_PaymentCard(
-                        type: selectedType,
-                        last4: last4.length >= 4 ? last4.substring(last4.length - 4) : last4,
-                        name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : 'Cardholder',
-                        expiry: expiryCtrl.text.trim(),
-                      ));
-                    });
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please log in to save a card.')),
+                      );
+                      return;
+                    }
+                    final cleaned = numberCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+                    final last4 = cleaned.length >= 4
+                        ? cleaned.substring(cleaned.length - 4)
+                        : cleaned;
+                    await PaymentCardService.addCard(
+                      uid: uid,
+                      type: selectedType,
+                      last4: last4,
+                      name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : 'Cardholder',
+                      expiry: expiryCtrl.text.trim(),
+                    );
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('✅ Card added successfully!'),
+                        content: Text('Card added successfully!'),
                         backgroundColor: Color(0xFF0D8A6A),
                       ),
                     );
@@ -140,6 +151,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         return Icons.credit_card;
       case 'Mastercard':
         return Icons.credit_card_outlined;
+      case 'Card':
+        return Icons.credit_card;
       default:
         return Icons.account_balance_outlined;
     }
@@ -147,6 +160,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
@@ -173,7 +187,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
             ),
           ),
 
-          if (_cards.isEmpty)
+          if (uid == null)
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               padding: const EdgeInsets.all(20),
@@ -183,62 +197,100 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.credit_card_off_outlined, color: Colors.grey),
+                  Icon(Icons.lock_outline, color: Colors.grey),
                   SizedBox(width: 12),
-                  Text('No cards saved yet', style: TextStyle(color: Colors.grey)),
+                  Text('Please log in to manage cards', style: TextStyle(color: Colors.grey)),
                 ],
               ),
-            ),
+            )
+          else
+            StreamBuilder<List<PaymentCard>>(
+              stream: PaymentCardService.streamCards(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-          ..._cards.asMap().entries.map((entry) {
-            final card = entry.value;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E3A5F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                children: [
-                  Icon(_cardIcon(card.type), color: Colors.white, size: 28),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                final cards = snapshot.data ?? [];
+                if (cards.isEmpty) {
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Row(
                       children: [
-                        Text(
-                          '${card.type} •••• ${card.last4}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          '${card.name}${card.expiry.isNotEmpty ? '  ·  ${card.expiry}' : ''}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
+                        Icon(Icons.credit_card_off_outlined, color: Colors.grey),
+                        SizedBox(width: 12),
+                        Text('No cards saved yet', style: TextStyle(color: Colors.grey)),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      setState(() => _cards.removeAt(entry.key));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Card removed')),
-                      );
-                    },
-                    icon: const Icon(Icons.delete_outline, color: Colors.white70),
-                  ),
-                ],
-              ),
-            );
-          }),
+                  );
+                }
+
+                return Column(
+                  children: cards.map((card) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E3A5F)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_cardIcon(card.type), color: Colors.white, size: 28),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${card.type} **** ${card.last4}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  '${card.name}${card.expiry.isNotEmpty ? '  -  ${card.expiry}' : ''}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () async {
+                              await PaymentCardService.deleteCard(
+                                uid: uid,
+                                cardId: card.id,
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Card removed')),
+                              );
+                            },
+                            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+
+          
 
           // Add card button
           GestureDetector(
@@ -302,16 +354,3 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 }
 
-class _PaymentCard {
-  final String type;
-  final String last4;
-  final String name;
-  final String expiry;
-
-  const _PaymentCard({
-    required this.type,
-    required this.last4,
-    required this.name,
-    required this.expiry,
-  });
-}

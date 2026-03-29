@@ -9,6 +9,7 @@ import 'auth/login_signup_screen.dart';
 import 'my_information_screen.dart';
 import 'orders/order_tracking_screen.dart';
 import 'orders/orders_screen.dart';
+import 'favorites_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -279,6 +280,15 @@ class ProfileScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                ),
+              ),
+              _menuItem(
+                context: context,
+                icon: Icons.favorite_border,
+                label: 'My favorites',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
                 ),
               ),
               _menuItem(

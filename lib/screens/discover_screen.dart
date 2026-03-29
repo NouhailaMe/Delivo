@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../services/firestore_service.dart';
 import '../services/location_service.dart';
 import 'location/location_picker_screen.dart';
 import 'restaurants/restaurant_details_screen.dart';
@@ -238,82 +240,209 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                _sectionTitle('Crowd-pleasers', 'Consistently trending, week after week'),
-                SizedBox(
-                  height: 260,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    scrollDirection: Axis.horizontal,
-                    children: _crowdPleasers
-                        .map((item) => GestureDetector(
-                              onTap: () => _openRestaurant(item.restaurantId, item.name),
-                              child: Container(
-                                width: 320,
-                                margin: const EdgeInsets.only(right: 12),
-                                child: _rankItem(item),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _sectionTitle('Top restaurants', 'Most ordered in your city'),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 150,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    scrollDirection: Axis.horizontal,
-                    children: _topRestaurants
-                        .map((store) => GestureDetector(
-                              onTap: () => _openRestaurant(store.restaurantId, store.name),
-                              child: Container(
-                                width: 132,
-                                margin: const EdgeInsets.only(right: 10),
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        padding: const EdgeInsets.all(18),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                                        ),
-                                        child: SvgPicture.asset(store.logoAsset),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFCD4A),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Text(
-                                        'Free',
-                                        style: TextStyle(fontWeight: FontWeight.w700, color: navy),
-                                      ),
-                                    ),
-                                  ],
+                if (search.isNotEmpty) ...[
+                  _sectionTitle('Search results', 'Restaurants matching "$search"'),
+                  const SizedBox(height: 12),
+                  _searchResults(search),
+                ],
+                if (search.isEmpty) ...[
+                  _sectionTitle('Crowd-pleasers', 'Consistently trending, week after week'),
+                  SizedBox(
+                    height: 260,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      children: _crowdPleasers
+                          .map((item) => GestureDetector(
+                                onTap: () => _openRestaurant(item.restaurantId, item.name),
+                                child: Container(
+                                  width: 320,
+                                  margin: const EdgeInsets.only(right: 12),
+                                  child: _rankItem(item),
                                 ),
-                              ),
-                            ))
-                        .toList(),
+                              ))
+                          .toList(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _sectionTitle('Loved by locals', 'Currently popular near you'),
-                const SizedBox(height: 8),
-                ...filteredCards.map((store) => GestureDetector(
-                      onTap: () => _openRestaurant(store.restaurantId, store.name),
-                      child: _largeStoreCard(store),
-                    )),
+                  const SizedBox(height: 14),
+                  _sectionTitle('Top restaurants', 'Most ordered in your city'),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 150,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      scrollDirection: Axis.horizontal,
+                      children: _topRestaurants
+                          .map((store) => GestureDetector(
+                                onTap: () => _openRestaurant(store.restaurantId, store.name),
+                                child: Container(
+                                  width: 132,
+                                  margin: const EdgeInsets.only(right: 10),
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          padding: const EdgeInsets.all(18),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                                          ),
+                                          child: SvgPicture.asset(store.logoAsset),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFCD4A),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Text(
+                                          'Free',
+                                          style: TextStyle(fontWeight: FontWeight.w700, color: navy),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Loved by locals', 'Currently popular near you'),
+                  const SizedBox(height: 8),
+                  ...filteredCards.map((store) => GestureDetector(
+                        onTap: () => _openRestaurant(store.restaurantId, store.name),
+                        child: _largeStoreCard(store),
+                      )),
+                ],
               ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _searchResults(String search) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirestoreService().getRestaurants(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        var docs = snapshot.data?.docs ?? [];
+        if (search.isNotEmpty) {
+          final query = search.toLowerCase();
+          docs = docs.where((doc) {
+            final data = doc.data();
+            final name = (data['name'] ?? '').toString().toLowerCase();
+            final category = (data['category'] ?? '').toString().toLowerCase();
+            return name.contains(query) || category.contains(query);
+          }).toList();
+        }
+
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: const Text('No restaurants found.'),
+            ),
+          );
+        }
+
+        return Column(
+          children: docs.map((doc) {
+            final data = doc.data();
+            final name = (data['name'] ?? 'Restaurant').toString();
+            final duration = (data['deliveryTime'] ?? '20-30 min').toString();
+            final rating = ((data['rating'] as num?) ?? 4.6).toStringAsFixed(1);
+            final cover = data['coverImage']?.toString();
+
+            return GestureDetector(
+              onTap: () => _openRestaurant(doc.id, name),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      child: SizedBox(
+                        height: 160,
+                        width: double.infinity,
+                        child: cover != null && cover.isNotEmpty
+                            ? Image.network(
+                                cover,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _searchImageFallback(),
+                              )
+                            : _searchImageFallback(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    color: navy,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Rating $rating - $duration',
+                                  style: const TextStyle(
+                                    color: Color(0xFF4B5563),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: navy),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _searchImageFallback() {
+    return Container(
+      color: const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: const Icon(Icons.storefront, color: Color(0xFF9CA3AF), size: 40),
     );
   }
 
@@ -479,7 +608,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.favorite_border, color: navy),
               ],
             ),
           ),

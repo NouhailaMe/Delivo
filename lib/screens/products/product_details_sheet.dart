@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
 import '../../services/cart_service.dart';
+import '../../widgets/favorite_button.dart';
 
 class ProductDetailsSheet extends StatefulWidget {
   final Map<String, dynamic> productData;
@@ -110,6 +111,7 @@ class _ProductDetailsSheetState extends State<ProductDetailsSheet> {
                     const SizedBox(height: 12),
                     _RelatedProducts(
                       restaurantId: widget.restaurantId,
+                      restaurantName: widget.restaurantName,
                       currentProductId: productId,
                       onSelect: (data) {
                         Navigator.pop(context);
@@ -181,8 +183,22 @@ class _ProductDetailsSheetState extends State<ProductDetailsSheet> {
         ),
         Positioned(
           right: 12,
-          bottom: 12,
-          child: _circleIcon(icon: Icons.search),
+          top: 12,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: FavoriteButton(
+              restaurantId: widget.restaurantId,
+              restaurantName: widget.restaurantName,
+              productId: productId,
+              name: name,
+              imageUrl: imageUrl,
+              price: price,
+              size: 20,
+            ),
+          ),
         ),
       ],
     );
@@ -374,11 +390,13 @@ class _OptionsSection extends StatelessWidget {
 
 class _RelatedProducts extends StatelessWidget {
   final String restaurantId;
+  final String restaurantName;
   final String currentProductId;
   final void Function(Map<String, dynamic>) onSelect;
 
   const _RelatedProducts({
     required this.restaurantId,
+    required this.restaurantName,
     required this.currentProductId,
     required this.onSelect,
   });
@@ -411,6 +429,9 @@ class _RelatedProducts extends StatelessWidget {
               final data = docs[index].data();
               data['id'] = docs[index].id;
               final imageUrl = data['imageUrl']?.toString();
+              final name = (data['name'] ?? '').toString();
+              final price = (data['price'] as num?)?.toDouble() ?? 0;
+              final productId = (data['id'] ?? '').toString();
 
               return GestureDetector(
                 onTap: () => onSelect(data),
@@ -435,16 +456,39 @@ class _RelatedProducts extends StatelessWidget {
                               ),
                             ),
                             Positioned(
-                              right: 8,
-                              bottom: 8,
+                              left: 6,
+                              top: 6,
                               child: Container(
                                 decoration: const BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(7),
-                                  child: Icon(Icons.add, color: Color(0xFF0F172A)),
+                                child: FavoriteButton(
+                                  restaurantId: restaurantId,
+                                  restaurantName: restaurantName,
+                                  productId: productId,
+                                  name: name,
+                                  imageUrl: imageUrl,
+                                  price: price,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 8,
+                              bottom: 8,
+                              child: InkWell(
+                                onTap: () => _addToCart(context, productId, name, imageUrl, price),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(7),
+                                    child: Icon(Icons.add, color: Color(0xFF0F172A)),
+                                  ),
                                 ),
                               ),
                             ),
@@ -453,7 +497,7 @@ class _RelatedProducts extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        (data['name'] ?? '').toString(),
+                        name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -470,6 +514,31 @@ class _RelatedProducts extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _addToCart(
+    BuildContext context,
+    String productId,
+    String name,
+    String? imageUrl,
+    double price,
+  ) {
+    context.read<CartService>().addToCart(
+          item: CartItem(
+            productId: productId,
+            restaurantId: restaurantId,
+            name: name,
+            imageUrl: imageUrl,
+            price: price,
+            quantity: 1,
+            options: const {},
+          ),
+          restaurantName: restaurantName,
+        );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$name added to cart')),
     );
   }
 

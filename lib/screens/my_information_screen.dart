@@ -44,12 +44,14 @@ class _MyInformationScreenState extends State<MyInformationScreen> {
     if (user == null) return;
     setState(() => _saving = true);
     try {
+      final trimmedName = _nameController.text.trim();
+      final trimmedEmail = _emailController.text.trim();
+
       // Update display name
-      await user.updateDisplayName(_nameController.text.trim());
+      await user.updateDisplayName(trimmedName);
       // Update email if changed
-      if (_emailController.text.trim().isNotEmpty &&
-          _emailController.text.trim() != user.email) {
-        await user.verifyBeforeUpdateEmail(_emailController.text.trim());
+      if (trimmedEmail.isNotEmpty && trimmedEmail != user.email) {
+        await user.verifyBeforeUpdateEmail(trimmedEmail);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -65,6 +67,14 @@ class _MyInformationScreenState extends State<MyInformationScreen> {
           ),
         );
       }
+
+      await UserProfileService.updateUserFields(
+        uid: user.uid,
+        fields: {
+          'name': trimmedName,
+          if (trimmedEmail.isNotEmpty) 'email': trimmedEmail,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

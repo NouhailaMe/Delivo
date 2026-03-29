@@ -47,4 +47,15 @@ class UserProfileService {
     if (user == null) return;
     await syncUser(user: user, explicitRole: explicitRole);
   }
+
+  static Future<void> updateUserFields({
+    required String uid,
+    required Map<String, dynamic> fields,
+  }) async {
+    if (fields.isEmpty) return;
+    await _db.collection('users').doc(uid).set({
+      ...fields,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

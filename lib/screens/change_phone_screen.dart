@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../services/phone_auth_service.dart';
+import '../services/user_profile_service.dart';
 
 
 class ChangePhoneScreen extends StatefulWidget {
@@ -70,6 +73,13 @@ class _ChangePhoneScreenState extends State<ChangePhoneScreen> {
       onCodeSent: (verificationId) {
         if (!mounted) return;
         setState(() => _loading = false);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          UserProfileService.updateUserFields(
+            uid: user.uid,
+            fields: {'phone': phoneNumber},
+          );
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('SMS sent to $phoneNumber — please verify')),
         );

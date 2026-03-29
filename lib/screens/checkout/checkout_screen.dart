@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../services/cart_service.dart';
 import '../../services/location_service.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_card_service.dart';
+import '../../models/payment_card.dart';
 import '../location/location_picker_screen.dart';
 import '../orders/order_tracking_screen.dart';
 
@@ -24,12 +26,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _orderService = OrderService();
   Map<String, dynamic>? _selectedAddress;
   String _selectedPayment = 'Cash';
+  String _selectedDelivery = 'Standard';
   bool _placingOrder = false;
+
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _cardNameController = TextEditingController();
+  final TextEditingController _cardExpiryController = TextEditingController();
+  String? _selectedCardId;
+  PaymentCard? _selectedCard;
 
   @override
   void initState() {
     super.initState();
     _loadAddress();
+  }
+
+  @override
+  void dispose() {
+    _cardNumberController.dispose();
+    _cardNameController.dispose();
+    _cardExpiryController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadAddress() async {
@@ -87,16 +104,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       final serviceFee = cart.totalPrice * 0.05;
-      final total = cart.totalPrice + serviceFee;
+      final deliveryFee = _deliveryFeeFor(_selectedDelivery);
+      final total = cart.totalPrice + serviceFee + deliveryFee;
+
+      Map<String, dynamic>? paymentCard;
+      if (_selectedPayment == 'Card') {
+        var card = _selectedCard;
+        if (card == null && _cardNumberController.text.trim().isNotEmpty) {
+          card = await _saveCardFromForm(user.uid);
+          if (!mounted) return;
+          if (card == null) {
+            setState(() => _placingOrder = false);
+            return;
+          }
+          setState(() {
+            _selectedCard = card;
+            _selectedCardId = card?.id;
+          });
+        }
+
+        if (card == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select or add a card.')),
+          );
+          setState(() => _placingOrder = false);
+          return;
+        }
+
+        paymentCard = {
+          'id': card.id,
+          ...card.toMap(),
+        };
+      }
       final orderId = await _orderService.createOrder(
         userId: user.uid,
         restaurantId: cart.restaurantId ?? '',
         restaurantName: cart.restaurantName ?? 'Restaurant',
         items: cart.items.map((e) => e.toMap()).toList(),
         productsSubtotal: cart.totalPrice,
+        deliveryFee: deliveryFee,
         serviceFee: serviceFee,
         total: total,
         paymentMethod: _selectedPayment,
+        deliveryOption: _selectedDelivery,
+        paymentCard: paymentCard,
         deliveryAddress: _selectedAddress!,
       );
 
@@ -123,7 +175,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartService>();
     final serviceFee = cart.totalPrice * 0.05;
-    final total = cart.totalPrice + serviceFee;
+    final deliveryFee = _deliveryFeeFor(_selectedDelivery);
+    final total = cart.totalPrice + serviceFee + deliveryFee;
     final lat = (_selectedAddress?['latitude'] as num?)?.toDouble() ?? 33.5898;
     final lng = (_selectedAddress?['longitude'] as num?)?.toDouble() ?? -7.6039;
 
@@ -180,18 +233,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: _cardDecoration(),
-            child: const Row(
+            child: Column(
               children: [
-                Icon(Icons.schedule, color: navy),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Standard · 20-30 min',
-                    style: TextStyle(
-                      color: navy,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                _deliveryTile(
+                  label: 'Standard',
+                  eta: '20-30 min',
+                  fee: 0,
+                ),
+                const Divider(height: 18),
+                _deliveryTile(
+                  label: 'Express',
+                  eta: '10-15 min',
+                  fee: 10,
                 ),
               ],
             ),
@@ -212,11 +265,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => _selectedPayment = value);
+                  setState(() {
+                    _selectedPayment = value;
+                    if (value != 'Card') {
+                      _selectedCard = null;
+                      _selectedCardId = null;
+                    }
+                  });
                 },
               ),
             ),
           ),
+          if (_selectedPayment == 'Card') ...[
+            const SizedBox(height: 12),
+            _cardSelectionSection(),
+          ],
           const SizedBox(height: 24),
           _sectionTitle('Delivery address'),
           const SizedBox(height: 10),
@@ -291,7 +354,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               children: [
                 _summaryRow('Products', '${cart.totalPrice.toStringAsFixed(2)} MAD'),
-                _summaryRow('Delivery', 'FREE'),
+                _summaryRow(
+                  'Delivery',
+                  deliveryFee == 0 ? 'FREE' : '${deliveryFee.toStringAsFixed(2)} MAD',
+                ),
                 _summaryRow('Services', '${serviceFee.toStringAsFixed(2)} MAD'),
                 const Divider(height: 22),
                 _summaryRow(
@@ -334,6 +400,193 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ),
     );
+  }
+
+  Widget _deliveryTile({
+    required String label,
+    required String eta,
+    required double fee,
+  }) {
+    return RadioListTile<String>(
+      value: label,
+      groupValue: _selectedDelivery,
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _selectedDelivery = value);
+      },
+      title: Text(
+        '$label - $eta',
+        style: const TextStyle(color: navy, fontWeight: FontWeight.w700),
+      ),
+      secondary: Text(
+        fee == 0 ? 'FREE' : '+${fee.toStringAsFixed(0)} MAD',
+        style: TextStyle(
+          color: fee == 0 ? const Color(0xFF0D8A6A) : navy,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _cardSelectionSection() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _cardDecoration(),
+        child: const Text('Please log in to manage cards.'),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Saved cards',
+            style: TextStyle(fontWeight: FontWeight.w700, color: navy),
+          ),
+          const SizedBox(height: 8),
+          StreamBuilder<List<PaymentCard>>(
+            stream: PaymentCardService.streamCards(uid),
+            builder: (context, snapshot) {
+              final cards = snapshot.data ?? [];
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (cards.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Text('No saved cards yet.'),
+                );
+              }
+              return Column(
+                children: cards.map((card) {
+                  return RadioListTile<String>(
+                    value: card.id,
+                    groupValue: _selectedCardId,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _selectedCardId = value;
+                        _selectedCard = card;
+                      });
+                    },
+                    title: Text('${card.type} **** ${card.last4}'),
+                    subtitle: Text(
+                      '${card.name}${card.expiry.isNotEmpty ? '  -  ${card.expiry}' : ''}',
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          const Divider(),
+          const SizedBox(height: 10),
+          const Text(
+            'Add a new card',
+            style: TextStyle(fontWeight: FontWeight.w700, color: navy),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _cardNumberController,
+            keyboardType: TextInputType.number,
+            decoration: _inputDecoration('Card number'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _cardNameController,
+            decoration: _inputDecoration('Cardholder name'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _cardExpiryController,
+            keyboardType: TextInputType.datetime,
+            decoration: _inputDecoration('Expiry (MM/YY)'),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: navy,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                final card = await _saveCardFromForm(uid);
+                if (!mounted || card == null) return;
+                setState(() {
+                  _selectedCard = card;
+                  _selectedCardId = card.id;
+                });
+              },
+              child: const Text('Save card'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: const Color(0xFFF3F4F6),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  double _deliveryFeeFor(String option) {
+    return option == 'Express' ? 10.0 : 0.0;
+  }
+
+  Future<PaymentCard?> _saveCardFromForm(String uid) async {
+    final cleaned = _cardNumberController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid card number')),
+      );
+      return null;
+    }
+
+    final last4 = cleaned.substring(cleaned.length - 4);
+    final name = _cardNameController.text.trim().isNotEmpty
+        ? _cardNameController.text.trim()
+        : 'Cardholder';
+    final expiry = _cardExpiryController.text.trim();
+
+    final card = await PaymentCardService.addCard(
+      uid: uid,
+      type: 'Card',
+      last4: last4,
+      name: name,
+      expiry: expiry,
+    );
+
+    if (!mounted) return card;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Card saved'),
+        backgroundColor: Color(0xFF0D8A6A),
+      ),
+    );
+    return card;
   }
 
   BoxDecoration _cardDecoration() {
